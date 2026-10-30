@@ -8,7 +8,8 @@ data class GenreDefinition(
     val mwSlug: String?,
     val mpGenre: String?,
     val mdTag: String?,
-    val keywords: List<String>
+    val keywords: List<String>,
+    val mdDemographic: String? = null
 )
 
 object Filters {
@@ -78,9 +79,9 @@ object Filters {
     val GENRE_DEFINITIONS = mapOf(
         "action" to GenreDefinition("action", "1", 51, "Action", "azione", "Action", "391b0423-d847-456f-aff0-8b0cfc03066b", listOf("action", "azione", "combattimento")),
         "adventure" to GenreDefinition("adventure", "2", 21, "Adventure", "avventura", "Adventure", "87cc87cd-a395-47af-b27a-93258283bbc6", listOf("adventure", "avventura")),
-        "shounen" to GenreDefinition("shounen", "32", 34, "Shounen", "shounen", "Shounen", null, listOf("shounen", "shonen")),
-        "seinen" to GenreDefinition("seinen", "29", 49, "Seinen", "seinen", "Seinen", null, listOf("seinen", "maturo", "adulti")),
-        "shoujo" to GenreDefinition("shoujo", "30", 18, "Shoujo", "shoujo", "Shoujo", null, listOf("shoujo", "shojo")),
+        "shounen" to GenreDefinition("shounen", "32", 34, "Shounen", "shounen", "Shounen", null, listOf("shounen", "shonen"), mdDemographic = "shounen"),
+        "seinen" to GenreDefinition("seinen", "29", 49, "Seinen", "seinen", "Seinen", null, listOf("seinen", "maturo", "adulti"), mdDemographic = "seinen"),
+        "shoujo" to GenreDefinition("shoujo", "30", 18, "Shoujo", "shoujo", "Shoujo", null, listOf("shoujo", "shojo"), mdDemographic = "shoujo"),
         "isekai" to GenreDefinition("isekai", "49", 53, "Isekai", "fantasy", "Isekai", "ace04997-f6bd-436e-b261-779182193d3d", listOf("isekai", "reincarnation", "reincarnazione", "altro mondo", "another world")),
         "fantasy" to GenreDefinition("fantasy", "9", 9, "Fantasy", "fantasy", "Fantasy", "cdc58593-87dd-415e-bbc0-2ec27bf404cc", listOf("fantasy", "fantasia", "magia", "magic")),
         "comedy" to GenreDefinition("comedy", "4", 37, "Comedy", "commedia", "Comedy", "4d32cc48-9f00-4cca-9b5a-a839f0764984", listOf("comedy", "commedia", "umorismo", "parodia")),
