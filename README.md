@@ -49,7 +49,25 @@ Oppure tramite Gradle wrapper:
 ```bash
 ./gradlew assembleDebug
 ```
-L'APK generato sarà posizionato in `app/build/outputs/apk/debug/app-debug.apk`.
+L'APK generato sarà posizionato in `app/build/outputs/apk/release/app-release.apk`.
+
+---
+
+## 🚀 Pubblicazione e Auto-Updater su GitHub Pages
+
+Per pubblicare l'APK e il manifesto `version_mobile.json` direttamente sul branch `gh-pages` di `manga-cli`:
+
+```bash
+# Pubblica l'APK release attuale
+./publish-gh-pages.sh
+
+# Oppure aggiorna versione, note di rilascio, compila e pubblica in un colpo solo:
+./publish-gh-pages.sh --version 1.0.1 --notes "Risolto bug lettore e migliorato player video"
+```
+I dispositivi con l'app installata controlleranno automaticamente l'aggiornamento all'avvio da:
+- Manifest: `https://bhaki18.github.io/manga-cli/version_mobile.json`
+- APK Download: `https://bhaki18.github.io/manga-cli/android/app-release.apk`
+
 
 ---
 

@@ -21,9 +21,9 @@ data class UpdateInfo(
 
 class UpdateService(private val context: Context) {
     private val versionUrls = listOf(
-        "https://raw.githubusercontent.com/bhaki18/manga-cli/gh-pages/version.json",
-        "https://raw.githubusercontent.com/bhaki18/manga-gui/main/version.json",
-        "https://bhaki18.github.io/manga-cli/version.json"
+        "https://raw.githubusercontent.com/bhaki18/manga-gui-mobile/main/version_mobile.json",
+        "https://raw.githubusercontent.com/bhaki18/manga-gui/main/version_mobile.json",
+        "https://bhaki18.github.io/manga-cli/version_mobile.json"
     )
 
     private fun parseVersionTuple(raw: String?): IntArray {
@@ -75,8 +75,10 @@ class UpdateService(private val context: Context) {
                     if (bestRemote == null || isRemoteNewer(bestRemote, ver)) {
                         bestRemote = ver
                         notes = root.optString("notes")
-                        apkUrl = root.optString("androidApkUrl").ifBlank {
-                            "https://raw.githubusercontent.com/bhaki18/manga-cli/gh-pages/android/manga-gui-$ver.apk"
+                        apkUrl = root.optString("apkUrl").ifBlank {
+                            root.optString("androidApkUrl").ifBlank {
+                                "https://github.com/bhaki18/manga-gui-mobile/releases/download/v$ver/app-release.apk"
+                            }
                         }
                     }
                 }
