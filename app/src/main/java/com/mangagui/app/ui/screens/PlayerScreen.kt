@@ -1,7 +1,12 @@
 package com.mangagui.app.ui.screens
 
 import android.app.Activity
+import android.content.Context
 import android.content.pm.ActivityInfo
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -39,14 +44,18 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.mangagui.app.model.StreamData
 import com.mangagui.app.ui.theme.CrunchyrollOrange
 import com.mangagui.app.ui.theme.DubGreen
 import com.mangagui.app.ui.theme.SubBlue
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 enum class VideoResizeMode(val title: String, val mode: Int) {
     FIT("Adatta (Originale)", AspectRatioFrameLayout.RESIZE_MODE_FIT),
@@ -92,6 +101,7 @@ fun PlayerScreen(
         }
     }
 
+    val coroutineScope = rememberCoroutineScope()
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var showControls by remember { mutableStateOf(true) }
@@ -108,11 +118,18 @@ fun PlayerScreen(
         )
     }
 
+    var lastPositionMs by remember { mutableLongStateOf(0L) }
+    var autoRetryCount by remember { mutableIntStateOf(0) }
+    val maxAutoRetries = 3
+
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
 
     val exoPlayer = remember {
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(30_000)
+            .setReadTimeoutMs(30_000)
+            .setKeepPostFor302Redirects(true)
             .setUserAgent("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36")
 
         if (!streamData.referer.isNullOrBlank()) {
@@ -120,32 +137,138 @@ fun PlayerScreen(
         }
 
         val dataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
+        val loadErrorHandlingPolicy = DefaultLoadErrorHandlingPolicy(5)
         val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+            .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
+
+        val loadControl = DefaultLoadControl.Builder()
+            .setBackBuffer(120_000, true) // Retain 2 minutes of back-buffer in RAM to prevent connection drops when seeking backwards
+            .setBufferDurationsMs(
+                /* minBufferMs = */ 30_000,
+                /* maxBufferMs = */ 90_000,
+                /* bufferForPlaybackMs = */ 2_500,
+                /* bufferForPlaybackAfterRebufferMs = */ 5_000
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
 
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(loadControl)
+            .setSeekBackIncrementMs(10_000)
+            .setSeekForwardIncrementMs(10_000)
             .build().apply {
                 val mediaItem = MediaItem.fromUri(streamData.streamUrl ?: "")
                 setMediaItem(mediaItem)
                 prepare()
                 playWhenReady = true
-
-                addListener(object : Player.Listener {
-                    override fun onPlaybackStateChanged(playbackState: Int) {
-                        isLoading = (playbackState == Player.STATE_BUFFERING)
-                    }
-
-                    override fun onPlayerError(error: PlaybackException) {
-                        isLoading = false
-                        errorMessage = "Errore di riproduzione: ${error.localizedMessage ?: "Impossibile caricare il video"}"
-                    }
-                })
             }
     }
 
+    fun reloadAndResume(seekTo: Long? = null) {
+        val targetPos = seekTo ?: (if (lastPositionMs > 0) lastPositionMs else exoPlayer.currentPosition.coerceAtLeast(0L))
+        isLoading = true
+        errorMessage = null
+        exoPlayer.setMediaItem(MediaItem.fromUri(currentUrl))
+        exoPlayer.prepare()
+        if (targetPos > 0) {
+            exoPlayer.seekTo(targetPos)
+        }
+        exoPlayer.playWhenReady = true
+    }
+
+    // Keep lastPositionMs tracked accurately during continuous playback
+    LaunchedEffect(exoPlayer) {
+        while (true) {
+            if (exoPlayer.currentPosition > 0) {
+                lastPositionMs = exoPlayer.currentPosition
+            }
+            delay(1000)
+        }
+    }
+
+    // Listen for playback state and handle error recovery
     DisposableEffect(exoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                isLoading = (playbackState == Player.STATE_BUFFERING)
+                if (playbackState == Player.STATE_READY) {
+                    autoRetryCount = 0
+                    errorMessage = null
+                }
+            }
+
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) {
+                if (newPosition.positionMs > 0) {
+                    lastPositionMs = newPosition.positionMs
+                }
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                isLoading = false
+                val pos = if (exoPlayer.currentPosition > 0) exoPlayer.currentPosition else lastPositionMs
+                if (pos > 0) {
+                    lastPositionMs = pos
+                }
+
+                if (autoRetryCount < maxAutoRetries) {
+                    autoRetryCount++
+                    coroutineScope.launch {
+                        delay(autoRetryCount * 1200L)
+                        reloadAndResume(lastPositionMs)
+                    }
+                } else {
+                    errorMessage = "Errore di connessione durante lo streaming. Tocca Riprova per riconnetterti."
+                }
+            }
+        }
+
+        exoPlayer.addListener(listener)
+
         onDispose {
+            exoPlayer.removeListener(listener)
             exoPlayer.release()
+        }
+    }
+
+    // Network interface monitor (WiFi <-> Cellular transition recovery)
+    val connectivityManager = remember {
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+    }
+
+    DisposableEffect(connectivityManager) {
+        if (connectivityManager == null) {
+            onDispose {}
+        } else {
+            val networkCallback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    coroutineScope.launch {
+                        // If player errored out during network switch or drop, auto-recover seamlessly
+                        if (errorMessage != null || exoPlayer.playerError != null) {
+                            autoRetryCount = 0
+                            reloadAndResume(lastPositionMs)
+                        }
+                    }
+                }
+            }
+
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+
+            try {
+                connectivityManager.registerNetworkCallback(request, networkCallback)
+            } catch (_: Exception) {}
+
+            onDispose {
+                try {
+                    connectivityManager.unregisterNetworkCallback(networkCallback)
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -349,9 +472,8 @@ fun PlayerScreen(
                     )
                     Button(
                         onClick = {
-                            errorMessage = null
-                            exoPlayer.prepare()
-                            exoPlayer.play()
+                            autoRetryCount = 0
+                            reloadAndResume(lastPositionMs)
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = CrunchyrollOrange,
