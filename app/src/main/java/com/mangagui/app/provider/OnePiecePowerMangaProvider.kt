@@ -161,6 +161,15 @@ class OnePiecePowerMangaProvider : MangaProvider {
                 }
             }
         } catch (_: Exception) {}
+
+        val isBerserk = mangaUrl.contains("berserk", ignoreCase = true)
+        val hasSpecialPrologue = isBerserk || chapters.any { it.id.startsWith("000-") }
+        if (hasSpecialPrologue) {
+            return@withContext chapters.mapIndexed { idx, ch ->
+                ch.copy(number = (idx + 1).toString())
+            }
+        }
+
         chapters
     }
 

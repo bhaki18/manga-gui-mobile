@@ -142,7 +142,17 @@ class MangaWorldProvider : MangaProvider {
                 )
             }
         } catch (_: Exception) {}
-        chapters.reversed()
+
+        val isBerserk = mangaUrl.contains("berserk", ignoreCase = true)
+        val hasSpecialPrologue = isBerserk || chapters.any { it.id.startsWith("000-") || it.id.startsWith("0.") || it.id.startsWith("00.") }
+        val reversed = chapters.reversed()
+        if (hasSpecialPrologue) {
+            return@withContext reversed.mapIndexed { idx, ch ->
+                ch.copy(number = (idx + 1).toString())
+            }
+        }
+
+        reversed
     }
 
     override suspend fun getChapterPages(chapterUrl: String): ChapterPages = withContext(Dispatchers.IO) {
