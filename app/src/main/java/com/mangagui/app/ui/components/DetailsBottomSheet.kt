@@ -18,6 +18,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -256,13 +262,16 @@ fun DetailsBottomSheet(
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
-            // Number Stepper Selector
+            // Number Stepper & Direct Typing Selector
             val downloadedList = remember(item.id, item.watchedNumbers) {
                 if (item.isDownloaded) item.watchedNumbers.sorted() else emptyList()
             }
             val currentIndex = if (item.isDownloaded && downloadedList.isNotEmpty()) downloadedList.indexOf(selectedNumber) else -1
             val canGoPrev = if (item.isDownloaded && downloadedList.isNotEmpty()) currentIndex > 0 else selectedNumber > 1
             val canGoNext = if (item.isDownloaded && downloadedList.isNotEmpty()) currentIndex in 0 until (downloadedList.size - 1) else selectedNumber < maxNumber
+
+            var numberInputText by remember(selectedNumber) { mutableStateOf(selectedNumber.toString()) }
+            val focusManager = LocalFocusManager.current
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -276,14 +285,31 @@ fun DetailsBottomSheet(
                         .fillMaxWidth()
                         .padding(14.dp)
                 ) {
-                    Text(
-                        text = if (isAnime) "Seleziona Episodio" else "Seleziona Capitolo",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isAnime) "Seleziona Episodio" else "Seleziona Capitolo",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = if (item.isDownloaded && downloadedList.isNotEmpty()) {
+                                "${downloadedList.size} disponibili offline"
+                            } else {
+                                "Totale: $maxNumber"
+                            },
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = CrunchyrollOrange
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -292,6 +318,7 @@ fun DetailsBottomSheet(
                     ) {
                         FilledTonalIconButton(
                             onClick = {
+                                focusManager.clearFocus()
                                 if (item.isDownloaded && downloadedList.isNotEmpty()) {
                                     if (currentIndex > 0) {
                                         onNumberChange(downloadedList[currentIndex - 1])
@@ -306,19 +333,69 @@ fun DetailsBottomSheet(
                             Icon(Icons.Default.Remove, contentDescription = "Precedente")
                         }
 
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = if (isAnime) "Episodio $selectedNumber" else "Capitolo $selectedNumber",
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = CrunchyrollOrange
-                            )
-                            Text(
-                                text = if (item.isDownloaded && downloadedList.isNotEmpty()) {
-                                    "${downloadedList.size} disponibili offline"
-                                } else {
-                                    "di $maxNumber disponibili"
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 12.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = numberInputText,
+                                onValueChange = { newText ->
+                                    if (newText.length <= 5 && newText.all { it.isDigit() }) {
+                                        numberInputText = newText
+                                        val num = newText.toIntOrNull()
+                                        if (num != null && num >= 1) {
+                                            onNumberChange(num)
+                                        }
+                                    }
                                 },
+                                singleLine = true,
+                                textStyle = LocalTextStyle.current.copy(
+                                    textAlign = TextAlign.Center,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CrunchyrollOrange
+                                ),
+                                placeholder = {
+                                    Text(
+                                        text = selectedNumber.toString(),
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CrunchyrollOrange.copy(alpha = 0.5f),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Center
+                                    )
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        focusManager.clearFocus()
+                                        val num = numberInputText.toIntOrNull()
+                                        if (num == null || num < 1) {
+                                            numberInputText = selectedNumber.toString()
+                                        }
+                                    }
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = CrunchyrollOrange,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+                                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(54.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Text(
+                                text = "Tocca per scrivere il numero",
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -326,6 +403,7 @@ fun DetailsBottomSheet(
 
                         FilledTonalIconButton(
                             onClick = {
+                                focusManager.clearFocus()
                                 if (item.isDownloaded && downloadedList.isNotEmpty()) {
                                     if (currentIndex in 0 until (downloadedList.size - 1)) {
                                         onNumberChange(downloadedList[currentIndex + 1])
@@ -338,6 +416,55 @@ fun DetailsBottomSheet(
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Icon(Icons.Default.Add, contentDescription = "Successivo")
+                        }
+                    }
+
+                    // Quick Jump Chips: Primo (1) and Ultimo ($maxNumber)
+                    if (!item.isDownloaded && maxNumber > 1) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        focusManager.clearFocus()
+                                        onNumberChange(1)
+                                    }
+                            ) {
+                                Text(
+                                    text = if (isAnime) "Episodio 1" else "Capitolo 1",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = CrunchyrollOrange.copy(alpha = 0.2f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        focusManager.clearFocus()
+                                        onNumberChange(maxNumber)
+                                    }
+                            ) {
+                                Text(
+                                    text = if (isAnime) "Ultimo (Ep. $maxNumber)" else "Ultimo (Cap. $maxNumber)",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CrunchyrollOrange,
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     }
 

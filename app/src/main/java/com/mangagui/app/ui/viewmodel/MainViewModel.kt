@@ -384,7 +384,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setNumber(num: Int) {
-        if (num in 1.._maxNumber.value) {
+        if (num >= 1) {
+            if (num > _maxNumber.value) {
+                _maxNumber.value = num
+            }
             _selectedNumber.value = num
         }
     }
