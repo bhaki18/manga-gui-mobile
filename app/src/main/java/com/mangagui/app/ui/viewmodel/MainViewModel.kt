@@ -333,6 +333,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectItem(item: MediaItem) {
         _selectedItem.value = item
+        if (item.isDownloaded) {
+            val available = item.watchedNumbers.sorted()
+            val initial = available.firstOrNull() ?: 1
+            val maxNum = available.maxOrNull() ?: 1
+            _maxNumber.value = maxNum
+            _selectedNumber.value = initial
+            return
+        }
+
         val highest = item.watchedNumbers.maxOrNull() ?: 1
         val initialMax = maxOf(highest, if (item.count > 0) item.count else 1)
         _maxNumber.value = initialMax
@@ -476,9 +485,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         try {
             // Check if downloaded offline file exists
             if (item.isDownloaded && !item.localPath.isNullOrBlank()) {
-                val f = java.io.File(item.localPath)
-                if (f.exists()) {
-                    return@withContext StreamData(streamUrl = android.net.Uri.fromFile(f).toString())
+                val dir = java.io.File(item.localPath)
+                if (dir.exists()) {
+                    val videoFile = if (dir.isFile) {
+                        dir
+                    } else {
+                        val videoFiles = dir.walkTopDown().filter { file ->
+                            file.isFile && (
+                                file.extension.equals("mp4", true) ||
+                                file.extension.equals("mkv", true) ||
+                                file.extension.equals("webm", true)
+                            )
+                        }.toList()
+
+                        videoFiles.find { file ->
+                            val epNum = Regex("""(?:ep(?:isode)?|_|\b)(${number})(?:\.|\b|_)""", RegexOption.IGNORE_CASE)
+                                .find(file.name)?.groupValues?.get(1)?.toIntOrNull()
+                            epNum == number
+                        } ?: videoFiles.find { file ->
+                            file.name.contains("$number")
+                        } ?: videoFiles.firstOrNull()
+                    }
+
+                    if (videoFile != null && videoFile.exists()) {
+                        historyService.markWatched(item, number)
+                        return@withContext StreamData(
+                            streamUrl = android.net.Uri.fromFile(videoFile).toString(),
+                            referer = null
+                        )
+                    }
                 }
             }
 
@@ -516,10 +551,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (item.isDownloaded && !item.localPath.isNullOrBlank()) {
                 val f = java.io.File(item.localPath)
                 if (f.exists() && f.isDirectory) {
-                    val files = f.listFiles { file -> file.isFile && (file.name.endsWith(".jpg") || file.name.endsWith(".png") || file.name.endsWith(".webp")) }
-                        ?.sortedBy { it.name } ?: emptyList()
-                    if (files.isNotEmpty()) {
-                        val uris = files.map { android.net.Uri.fromFile(it).toString() }
+                    val subDirs = f.listFiles { d -> d.isDirectory } ?: emptyArray()
+                    val chapterDir = subDirs.find { d ->
+                        val num = Regex("""(?:ch(?:apter)?|cap(?:itolo)?|_|\b)(${number})(?:\b|_)""", RegexOption.IGNORE_CASE)
+                            .find(d.name)?.groupValues?.get(1)?.toIntOrNull()
+                        num == number
+                    } ?: subDirs.find { d -> d.name.contains("$number") } ?: f
+
+                    val imageFiles = chapterDir.walkTopDown().filter { file ->
+                        file.isFile && (
+                            file.extension.equals("jpg", true) ||
+                            file.extension.equals("jpeg", true) ||
+                            file.extension.equals("png", true) ||
+                            file.extension.equals("webp", true)
+                        ) && !file.name.equals("cover.jpg", true)
+                    }.sortedBy { it.name }.toList()
+
+                    if (imageFiles.isNotEmpty()) {
+                        val uris = imageFiles.map { android.net.Uri.fromFile(it).toString() }
+                        historyService.markWatched(item, number)
                         return@withContext ChapterPages(chapterTitle = "Capitolo $number", pages = uris)
                     }
                 }

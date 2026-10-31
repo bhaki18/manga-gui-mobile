@@ -33,6 +33,16 @@ class DownloadService(private val context: Context) {
         val targetDir = File(if (isManga) mangaDir else animeDir, safeTitle).also { it.mkdirs() }
 
         try {
+            // Cache cover image locally for offline display
+            if (!item.image.isNullOrBlank()) {
+                val coverFile = File(targetDir, "cover.jpg")
+                if (!coverFile.exists() || coverFile.length() == 0L) {
+                    runCatching {
+                        NetworkClient.downloadToFile(item.image, coverFile)
+                    }
+                }
+            }
+
             if (isManga) {
                 onProgress("Recupero capitoli manga...")
                 val prov = ProviderManager.getMangaProvider(item.source)
@@ -56,7 +66,8 @@ class DownloadService(private val context: Context) {
                 val chapterDir = File(targetDir, "Ch_$number").also { it.mkdirs() }
                 chPages.pages.forEachIndexed { idx, pageUrl ->
                     val pageNum = idx + 1
-                    val ext = pageUrl.substringBefore("?").substringAfterLast(".", "jpg")
+                    val rawExt = pageUrl.substringBefore("?").substringBefore("#").substringAfterLast(".", "jpg").lowercase()
+                    val ext = if (rawExt in listOf("jpg", "jpeg", "png", "webp", "gif", "avif")) rawExt else "jpg"
                     val pageFile = File(chapterDir, "page_${String.format("%03d", pageNum)}.$ext")
                     if (!pageFile.exists() || pageFile.length() == 0L) {
                         onProgress("Download pagina $pageNum / ${chPages.pages.size}...")
@@ -116,8 +127,11 @@ class DownloadService(private val context: Context) {
                 if (videoFiles.isNotEmpty()) {
                     val totalBytes = videoFiles.sumOf { it.length() }
                     val numbers = videoFiles.mapNotNull { f ->
-                        Regex("""(?:ep(?:isode)?|\b)(\d+)""", RegexOption.IGNORE_CASE).find(f.name)?.groupValues?.get(1)?.toIntOrNull()
+                        Regex("""(?:ep(?:isode)?|_|\b)(\d+)""", RegexOption.IGNORE_CASE).find(f.name)?.groupValues?.get(1)?.toIntOrNull()
                     }.distinct().sorted()
+
+                    val coverFile = File(dir, "cover.jpg")
+                    val coverUri = if (coverFile.exists() && coverFile.length() > 0) android.net.Uri.fromFile(coverFile).toString() else null
 
                     list.add(
                         MediaItem(
@@ -126,12 +140,13 @@ class DownloadService(private val context: Context) {
                             type = "anime",
                             source = "downloaded",
                             sourceName = "Offline Storage",
+                            image = coverUri,
                             isDownloaded = true,
                             localPath = dir.absolutePath,
-                            count = videoFiles.size,
+                            count = if (numbers.isNotEmpty()) numbers.maxOrNull() ?: videoFiles.size else videoFiles.size,
                             watchedNumbers = if (numbers.isNotEmpty()) numbers else listOf(1),
                             downloadSizeText = formatSize(totalBytes),
-                            customSubDubText = "${videoFiles.size} ${if (videoFiles.size == 1) "episode" else "episodes"} (${formatSize(totalBytes)})"
+                            customSubDubText = "${videoFiles.size} ${if (videoFiles.size == 1) "episodio" else "episodi"} (${formatSize(totalBytes)})"
                         )
                     )
                 }
@@ -144,11 +159,20 @@ class DownloadService(private val context: Context) {
                 val subDirs = dir.listFiles()?.filter { it.isDirectory }?.toList() ?: emptyList()
                 val totalBytes = dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
 
-                if (subDirs.isNotEmpty() || totalBytes > 0) {
-                    val count = if (subDirs.isNotEmpty()) subDirs.size else 1
-                    val numbers = subDirs.mapNotNull { d ->
-                        Regex("""(?:ch(?:apter)?|cap(?:itolo)?|\b)(\d+)""", RegexOption.IGNORE_CASE).find(d.name)?.groupValues?.get(1)?.toIntOrNull()
-                    }.distinct().sorted()
+                val numbers = subDirs.mapNotNull { d ->
+                    Regex("""(?:ch(?:apter)?|cap(?:itolo)?|_|\b)(\d+)""", RegexOption.IGNORE_CASE).find(d.name)?.groupValues?.get(1)?.toIntOrNull()
+                }.distinct().sorted()
+
+                val hasImages = dir.walkTopDown().any { f ->
+                    f.isFile && (f.extension.equals("jpg", true) || f.extension.equals("png", true) || f.extension.equals("webp", true)) && !f.name.equals("cover.jpg", true)
+                }
+
+                if (numbers.isNotEmpty() || hasImages) {
+                    val validNumbers = if (numbers.isNotEmpty()) numbers else listOf(1)
+                    val count = validNumbers.maxOrNull() ?: 1
+
+                    val coverFile = File(dir, "cover.jpg")
+                    val coverUri = if (coverFile.exists() && coverFile.length() > 0) android.net.Uri.fromFile(coverFile).toString() else null
 
                     list.add(
                         MediaItem(
@@ -157,12 +181,13 @@ class DownloadService(private val context: Context) {
                             type = "manga",
                             source = "downloaded",
                             sourceName = "Offline Storage",
+                            image = coverUri,
                             isDownloaded = true,
                             localPath = dir.absolutePath,
                             count = count,
-                            watchedNumbers = if (numbers.isNotEmpty()) numbers else listOf(1),
+                            watchedNumbers = validNumbers,
                             downloadSizeText = formatSize(totalBytes),
-                            customSubDubText = "$count ${if (count == 1) "chapter" else "chapters"} (${formatSize(totalBytes)})"
+                            customSubDubText = "${validNumbers.size} ${if (validNumbers.size == 1) "capitolo" else "capitoli"} (${formatSize(totalBytes)})"
                         )
                     )
                 }

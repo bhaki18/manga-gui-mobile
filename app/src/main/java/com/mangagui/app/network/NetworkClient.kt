@@ -39,6 +39,13 @@ object NetworkClient {
         })
         .build()
 
+    val downloadClient: OkHttpClient = client.newBuilder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(0, TimeUnit.MILLISECONDS) // 0 disables timeout during long streaming downloads
+        .writeTimeout(0, TimeUnit.MILLISECONDS)
+        .retryOnConnectionFailure(true)
+        .build()
+
     suspend fun fetchHtml(url: String, referer: String? = null, headers: Map<String, String> = emptyMap()): String = withContext(Dispatchers.IO) {
         val reqBuilder = Request.Builder()
             .url(url)
@@ -62,34 +69,71 @@ object NetworkClient {
         Jsoup.parse(html, url)
     }
 
-    suspend fun downloadToFile(url: String, destinationFile: File, referer: String? = null, onProgress: ((Long, Long) -> Unit)? = null) = withContext(Dispatchers.IO) {
+    suspend fun downloadToFile(
+        url: String,
+        destinationFile: File,
+        referer: String? = null,
+        onProgress: ((Long, Long) -> Unit)? = null
+    ) = withContext(Dispatchers.IO) {
         val reqBuilder = Request.Builder()
             .url(url)
             .header("User-Agent", DEFAULT_USER_AGENT)
+            .header("Accept", "*/*")
+            .header("Connection", "keep-alive")
 
         if (!referer.isNullOrBlank()) {
             reqBuilder.header("Referer", referer)
         }
 
-        client.newCall(reqBuilder.build()).execute().use { resp ->
-            if (!resp.isSuccessful) throw Exception("Download failed with HTTP ${resp.code}")
-            val body = resp.body ?: throw Exception("Empty response body")
-            val totalBytes = body.contentLength()
-            var downloadedBytes = 0L
+        val parent = destinationFile.parentFile
+        if (parent != null && !parent.exists()) {
+            parent.mkdirs()
+        }
 
-            destinationFile.parentFile?.mkdirs()
-            body.byteStream().use { input ->
-                FileOutputStream(destinationFile).use { output ->
-                    val buffer = ByteArray(16 * 1024)
-                    var bytesRead: Int
-                    while (input.read(buffer).also { bytesRead = it } != -1) {
-                        output.write(buffer, 0, bytesRead)
-                        downloadedBytes += bytesRead
-                        onProgress?.invoke(downloadedBytes, totalBytes)
+        val tempFile = File(parent, destinationFile.name + ".tmp")
+        if (tempFile.exists()) {
+            tempFile.delete()
+        }
+
+        try {
+            downloadClient.newCall(reqBuilder.build()).execute().use { resp ->
+                if (!resp.isSuccessful) throw Exception("Download HTTP ${resp.code}: ${resp.message}")
+                val body = resp.body ?: throw Exception("Empty response body")
+                val totalBytes = body.contentLength()
+                var downloadedBytes = 0L
+
+                body.byteStream().use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        val buffer = ByteArray(32 * 1024)
+                        var bytesRead: Int
+                        var lastProgressTime = 0L
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
+                            downloadedBytes += bytesRead
+                            val now = System.currentTimeMillis()
+                            if (now - lastProgressTime > 150 || (totalBytes > 0 && downloadedBytes >= totalBytes)) {
+                                lastProgressTime = now
+                                onProgress?.invoke(downloadedBytes, totalBytes)
+                            }
+                        }
+                        output.flush()
                     }
-                    output.flush()
                 }
             }
+
+            // Successfully downloaded, atomically replace destination
+            if (destinationFile.exists()) {
+                destinationFile.delete()
+            }
+            if (!tempFile.renameTo(destinationFile)) {
+                tempFile.copyTo(destinationFile, overwrite = true)
+                tempFile.delete()
+            }
+        } catch (ex: Exception) {
+            if (tempFile.exists()) {
+                tempFile.delete()
+            }
+            throw ex
         }
     }
 }

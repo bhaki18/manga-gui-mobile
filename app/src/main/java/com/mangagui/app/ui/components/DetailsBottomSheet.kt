@@ -161,8 +161,8 @@ fun DetailsBottomSheet(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Audio Selector (SUB / DUB) for Anime
-            if (isAnime) {
+            // Audio Selector (SUB / DUB) for Anime (only when online)
+            if (isAnime && !item.isDownloaded) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(14.dp),
@@ -257,6 +257,13 @@ fun DetailsBottomSheet(
             }
 
             // Number Stepper Selector
+            val downloadedList = remember(item.id, item.watchedNumbers) {
+                if (item.isDownloaded) item.watchedNumbers.sorted() else emptyList()
+            }
+            val currentIndex = if (item.isDownloaded && downloadedList.isNotEmpty()) downloadedList.indexOf(selectedNumber) else -1
+            val canGoPrev = if (item.isDownloaded && downloadedList.isNotEmpty()) currentIndex > 0 else selectedNumber > 1
+            val canGoNext = if (item.isDownloaded && downloadedList.isNotEmpty()) currentIndex in 0 until (downloadedList.size - 1) else selectedNumber < maxNumber
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -285,11 +292,15 @@ fun DetailsBottomSheet(
                     ) {
                         FilledTonalIconButton(
                             onClick = {
-                                if (selectedNumber > 1) {
+                                if (item.isDownloaded && downloadedList.isNotEmpty()) {
+                                    if (currentIndex > 0) {
+                                        onNumberChange(downloadedList[currentIndex - 1])
+                                    }
+                                } else if (selectedNumber > 1) {
                                     onNumberChange(selectedNumber - 1)
                                 }
                             },
-                            enabled = selectedNumber > 1,
+                            enabled = canGoPrev,
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Icon(Icons.Default.Remove, contentDescription = "Precedente")
@@ -303,7 +314,11 @@ fun DetailsBottomSheet(
                                 color = CrunchyrollOrange
                             )
                             Text(
-                                text = "di $maxNumber disponibili",
+                                text = if (item.isDownloaded && downloadedList.isNotEmpty()) {
+                                    "${downloadedList.size} disponibili offline"
+                                } else {
+                                    "di $maxNumber disponibili"
+                                },
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -311,11 +326,15 @@ fun DetailsBottomSheet(
 
                         FilledTonalIconButton(
                             onClick = {
-                                if (selectedNumber < maxNumber) {
+                                if (item.isDownloaded && downloadedList.isNotEmpty()) {
+                                    if (currentIndex in 0 until (downloadedList.size - 1)) {
+                                        onNumberChange(downloadedList[currentIndex + 1])
+                                    }
+                                } else if (selectedNumber < maxNumber) {
                                     onNumberChange(selectedNumber + 1)
                                 }
                             },
-                            enabled = selectedNumber < maxNumber,
+                            enabled = canGoNext,
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Icon(Icons.Default.Add, contentDescription = "Successivo")
