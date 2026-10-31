@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -339,14 +340,32 @@ fun DetailsBottomSheet(
                                 .weight(1f)
                                 .padding(horizontal = 12.dp)
                         ) {
+                            val maxAvailable = if (item.isDownloaded && downloadedList.isNotEmpty()) {
+                                downloadedList.maxOrNull() ?: 1
+                            } else {
+                                maxOf(1, maxNumber)
+                            }
+
                             OutlinedTextField(
                                 value = numberInputText,
                                 onValueChange = { newText ->
-                                    if (newText.length <= 5 && newText.all { it.isDigit() }) {
-                                        numberInputText = newText
+                                    if (newText.isEmpty()) {
+                                        numberInputText = ""
+                                    } else if (newText.length <= 5 && newText.all { it.isDigit() }) {
                                         val num = newText.toIntOrNull()
-                                        if (num != null && num >= 1) {
-                                            onNumberChange(num)
+                                        if (num != null) {
+                                            val clamped = num.coerceIn(1, maxAvailable)
+                                            val finalTarget = if (item.isDownloaded && downloadedList.isNotEmpty()) {
+                                                downloadedList.minByOrNull { kotlin.math.abs(it - clamped) } ?: clamped
+                                            } else {
+                                                clamped
+                                            }
+                                            if (num != finalTarget) {
+                                                numberInputText = finalTarget.toString()
+                                            } else {
+                                                numberInputText = newText
+                                            }
+                                            onNumberChange(finalTarget)
                                         }
                                     }
                                 },
@@ -375,9 +394,14 @@ fun DetailsBottomSheet(
                                     onDone = {
                                         focusManager.clearFocus()
                                         val num = numberInputText.toIntOrNull()
-                                        if (num == null || num < 1) {
-                                            numberInputText = selectedNumber.toString()
+                                        val target = num?.coerceIn(1, maxAvailable) ?: selectedNumber
+                                        val finalTarget = if (item.isDownloaded && downloadedList.isNotEmpty()) {
+                                            downloadedList.minByOrNull { kotlin.math.abs(it - target) } ?: target
+                                        } else {
+                                            target
                                         }
+                                        numberInputText = finalTarget.toString()
+                                        onNumberChange(finalTarget)
                                     }
                                 ),
                                 colors = OutlinedTextFieldDefaults.colors(
@@ -390,12 +414,29 @@ fun DetailsBottomSheet(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(54.dp)
+                                    .onFocusChanged { focusState ->
+                                        if (!focusState.isFocused) {
+                                            val num = numberInputText.toIntOrNull()
+                                            val target = num?.coerceIn(1, maxAvailable) ?: selectedNumber
+                                            val finalTarget = if (item.isDownloaded && downloadedList.isNotEmpty()) {
+                                                downloadedList.minByOrNull { kotlin.math.abs(it - target) } ?: target
+                                            } else {
+                                                target
+                                            }
+                                            numberInputText = finalTarget.toString()
+                                            onNumberChange(finalTarget)
+                                        }
+                                    }
                             )
 
                             Spacer(modifier = Modifier.height(4.dp))
 
                             Text(
-                                text = "Tocca per scrivere il numero",
+                                text = if (item.isDownloaded && downloadedList.isNotEmpty()) {
+                                    "Disponibili offline: ${downloadedList.first()} - ${downloadedList.last()}"
+                                } else {
+                                    "Range consentito: 1 - $maxAvailable"
+                                },
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

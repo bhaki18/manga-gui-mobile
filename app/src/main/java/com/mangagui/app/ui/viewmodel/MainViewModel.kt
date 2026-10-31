@@ -361,7 +361,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     prov.getEpisodes(item.url ?: item.id).size
                 }
                 if (_selectedItem.value?.id == item.id && total > 0) {
-                    _maxNumber.value = maxOf(total, _selectedNumber.value)
+                    _maxNumber.value = total
+                    if (_selectedNumber.value > total) {
+                        _selectedNumber.value = total
+                    }
                 }
             } catch (_: Exception) {}
         }
@@ -384,12 +387,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setNumber(num: Int) {
-        if (num >= 1) {
-            if (num > _maxNumber.value) {
-                _maxNumber.value = num
-            }
-            _selectedNumber.value = num
-        }
+        val max = maxOf(1, _maxNumber.value)
+        val clamped = num.coerceIn(1, max)
+        _selectedNumber.value = clamped
     }
 
     fun unmarkWatched(item: MediaItem, number: Int) {
