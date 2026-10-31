@@ -139,6 +139,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _activeTab.value = tab
         _selectedItem.value = null
         _selectedSource.value = "All sources"
+        _searchQuery.value = ""
 
         when (tab) {
             "Downloaded" -> loadDownloaded()
@@ -228,9 +229,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val audio = _selectedAudioFilter.value
 
                 val results = if (isAnime) {
-                    ProviderManager.searchAnime(q, src, lang, genre, audio)
+                    ProviderManager.searchAnime(q, src, lang, genre, audio).map { it.copy(type = "anime") }
                 } else {
-                    ProviderManager.searchManga(q, src, lang, genre)
+                    ProviderManager.searchManga(q, src, lang, genre).map { it.copy(type = "manga") }
                 }
 
                 _items.value = results
@@ -261,9 +262,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val audio = _selectedAudioFilter.value
 
                 val results = if (isAnime) {
-                    ProviderManager.getAnimeCatalog(src, lang, genre, audio)
+                    ProviderManager.getAnimeCatalog(src, lang, genre, audio).map { it.copy(type = "anime") }
                 } else {
-                    ProviderManager.getMangaCatalog(src, lang, genre)
+                    ProviderManager.getMangaCatalog(src, lang, genre).map { it.copy(type = "manga") }
                 }
 
                 _items.value = results

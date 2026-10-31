@@ -79,19 +79,25 @@ fun MediaCard(
                         )
                     }
 
-                    // Audio badge (SUB / DUB)
+                    // Audio badge (SUB / DUB) or Manga badge
                     val audioText = item.audioBadge
                     if (audioText.isNotBlank()) {
+                        val isManga = item.type.equals("manga", ignoreCase = true)
                         val isDub = audioText.contains("DUB", ignoreCase = true)
+                        val badgeColor = when {
+                            isManga -> CrunchyrollOrange.copy(alpha = 0.85f)
+                            isDub -> DubGreen.copy(alpha = 0.9f)
+                            else -> SubBlue.copy(alpha = 0.9f)
+                        }
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = if (isDub) DubGreen.copy(alpha = 0.9f) else SubBlue.copy(alpha = 0.9f)
+                            color = badgeColor
                         ) {
                             Text(
                                 text = audioText,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
+                                color = if (isManga) Color.Black else Color.White,
                                 modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                             )
                         }

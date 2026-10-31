@@ -36,7 +36,8 @@ class OnePiecePowerMangaProvider : MangaProvider {
                 genres = "Avventura, Shounen, Azione",
                 source = id,
                 sourceName = name,
-                language = "it"
+                language = "it",
+                type = "manga"
             )
         )
         mangaList.add(
@@ -48,7 +49,8 @@ class OnePiecePowerMangaProvider : MangaProvider {
                 genres = "Adventure, Shounen, Action",
                 source = id,
                 sourceName = name,
-                language = "en"
+                language = "en",
+                type = "manga"
             )
         )
 
@@ -78,7 +80,8 @@ class OnePiecePowerMangaProvider : MangaProvider {
                                 genres = genres,
                                 source = id,
                                 sourceName = name,
-                                language = "it"
+                                language = "it",
+                                type = "manga"
                             )
                         )
                     }

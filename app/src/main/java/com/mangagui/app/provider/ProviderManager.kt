@@ -59,7 +59,7 @@ object ProviderManager {
     suspend fun getAnimeCatalog(source: String?, lang: String?, genre: String?, audio: String?): List<MediaItem> = withContext(Dispatchers.IO) {
         val selected = getAnimeProvider(source)
         if (selected != null && !source.isNullOrBlank() && !source.equals("All sources", ignoreCase = true)) {
-            return@withContext selected.getCatalog(lang, genre, audio)
+            return@withContext selected.getCatalog(lang, genre, audio).map { it.copy(type = "anime") }
         }
 
         val deferreds = animeProviders.map { prov ->
@@ -68,13 +68,13 @@ object ProviderManager {
             }
         }
         val allLists = deferreds.awaitAll()
-        interleaveResults(allLists)
+        interleaveResults(allLists).map { it.copy(type = "anime") }
     }
 
     suspend fun searchAnime(query: String, source: String?, lang: String?, genre: String?, audio: String?): List<MediaItem> = withContext(Dispatchers.IO) {
         val selected = getAnimeProvider(source)
         if (selected != null && !source.isNullOrBlank() && !source.equals("All sources", ignoreCase = true)) {
-            return@withContext selected.search(query, lang, genre, audio)
+            return@withContext selected.search(query, lang, genre, audio).map { it.copy(type = "anime") }
         }
 
         val deferreds = animeProviders.map { prov ->
@@ -83,13 +83,13 @@ object ProviderManager {
             }
         }
         val allLists = deferreds.awaitAll()
-        interleaveResults(allLists)
+        interleaveResults(allLists).map { it.copy(type = "anime") }
     }
 
     suspend fun getMangaCatalog(source: String?, lang: String?, genre: String?): List<MediaItem> = withContext(Dispatchers.IO) {
         val selected = getMangaProvider(source)
         if (selected != null && !source.isNullOrBlank() && !source.equals("All sources", ignoreCase = true)) {
-            return@withContext selected.getCatalog(lang, genre)
+            return@withContext selected.getCatalog(lang, genre).map { it.copy(type = "manga") }
         }
 
         val deferreds = mangaProviders.map { prov ->
@@ -98,13 +98,13 @@ object ProviderManager {
             }
         }
         val allLists = deferreds.awaitAll()
-        interleaveResults(allLists)
+        interleaveResults(allLists).map { it.copy(type = "manga") }
     }
 
     suspend fun searchManga(query: String, source: String?, lang: String?, genre: String?): List<MediaItem> = withContext(Dispatchers.IO) {
         val selected = getMangaProvider(source)
         if (selected != null && !source.isNullOrBlank() && !source.equals("All sources", ignoreCase = true)) {
-            return@withContext selected.search(query, lang, genre)
+            return@withContext selected.search(query, lang, genre).map { it.copy(type = "manga") }
         }
 
         val deferreds = mangaProviders.map { prov ->
@@ -113,7 +113,7 @@ object ProviderManager {
             }
         }
         val allLists = deferreds.awaitAll()
-        interleaveResults(allLists)
+        interleaveResults(allLists).map { it.copy(type = "manga") }
     }
 }
 
