@@ -7,9 +7,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.mangagui.app.model.Filters
 import com.mangagui.app.model.MediaItem
 import com.mangagui.app.ui.theme.*
 
@@ -31,10 +33,11 @@ fun DetailsBottomSheet(
     item: MediaItem,
     selectedNumber: Int,
     maxNumber: Int,
+    initialAudioFilter: String = "all",
     onNumberChange: (Int) -> Unit,
     onUnmarkWatched: (Int) -> Unit,
-    onPlayOrRead: () -> Unit,
-    onDownload: () -> Unit,
+    onPlayOrRead: (String) -> Unit,
+    onDownload: (String) -> Unit,
     onDeleteDownload: () -> Unit,
     isDownloading: Boolean,
     downloadProgressText: String,
@@ -42,6 +45,17 @@ fun DetailsBottomSheet(
 ) {
     val isAnime = item.type.equals("anime", ignoreCase = true)
     val isWatched = item.watchedNumbers.contains(selectedNumber)
+
+    // Calculate initial audio selection based on item or active filter
+    val filterNorm = Filters.normalizeAudio(initialAudioFilter)
+    val defaultAudio = when {
+        filterNorm in listOf("dub", "ita") -> "dub"
+        filterNorm in listOf("sub", "subita") -> "sub"
+        item.audio?.lowercase() in listOf("dub", "ita") -> "dub"
+        else -> "sub"
+    }
+
+    var selectedAudio by remember(item.id, initialAudioFilter) { mutableStateOf(defaultAudio) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -134,7 +148,7 @@ fun DetailsBottomSheet(
                         )
                     }
 
-                    if (!item.subDubText.isBlank()) {
+                    if (item.subDubText.isNotBlank()) {
                         Text(
                             text = item.subDubText,
                             fontSize = 12.sp,
@@ -145,7 +159,102 @@ fun DetailsBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Audio Selector (SUB / DUB) for Anime
+            if (isAnime) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = "Traccia Audio:",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // SUB Button
+                            val isSub = selectedAudio == "sub"
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSub) SubBlue else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { selectedAudio = "sub" }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (isSub) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                    }
+                                    Text(
+                                        text = "SUB (Sottotitolato)",
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSub) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSub) Color.White else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+
+                            // DUB Button
+                            val isDub = selectedAudio == "dub"
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isDub) DubGreen else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { selectedAudio = "dub" }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (isDub) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = Color.Black,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                    }
+                                    Text(
+                                        text = "DUB (Doppiato)",
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isDub) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isDub) Color.Black else MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+            }
 
             // Number Stepper Selector
             Card(
@@ -174,7 +283,6 @@ fun DetailsBottomSheet(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Decrement Button
                         FilledTonalIconButton(
                             onClick = {
                                 if (selectedNumber > 1) {
@@ -187,7 +295,6 @@ fun DetailsBottomSheet(
                             Icon(Icons.Default.Remove, contentDescription = "Precedente")
                         }
 
-                        // Current Number Display
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = if (isAnime) "Episodio $selectedNumber" else "Capitolo $selectedNumber",
@@ -202,7 +309,6 @@ fun DetailsBottomSheet(
                             )
                         }
 
-                        // Increment Button
                         FilledTonalIconButton(
                             onClick = {
                                 if (selectedNumber < maxNumber) {
@@ -247,8 +353,9 @@ fun DetailsBottomSheet(
             Spacer(modifier = Modifier.height(20.dp))
 
             // Main Action Button (Play / Read)
+            val audioSuffix = if (isAnime) " (${selectedAudio.uppercase()})" else ""
             Button(
-                onClick = onPlayOrRead,
+                onClick = { onPlayOrRead(selectedAudio) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -259,13 +366,13 @@ fun DetailsBottomSheet(
                 )
             ) {
                 Icon(
-                    imageVector = if (isAnime) Icons.Default.PlayArrow else Icons.Default.MenuBook,
+                    imageVector = if (isAnime) Icons.Default.PlayArrow else Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = null,
                     modifier = Modifier.size(22.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (isAnime) "GUARDA EPISODIO $selectedNumber" else "LEGGI CAPITOLO $selectedNumber",
+                    text = if (isAnime) "GUARDA EPISODIO $selectedNumber$audioSuffix" else "LEGGI CAPITOLO $selectedNumber",
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
                 )
@@ -301,7 +408,7 @@ fun DetailsBottomSheet(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
-                        onClick = onPlayOrRead,
+                        onClick = { onPlayOrRead(selectedAudio) },
                         modifier = Modifier
                             .weight(1f)
                             .height(48.dp),
@@ -329,7 +436,7 @@ fun DetailsBottomSheet(
                 }
             } else {
                 OutlinedButton(
-                    onClick = onDownload,
+                    onClick = { onDownload(selectedAudio) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
@@ -341,7 +448,7 @@ fun DetailsBottomSheet(
                     Icon(Icons.Default.Download, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isAnime) "Scarica Episodio $selectedNumber" else "Scarica Capitolo $selectedNumber",
+                        text = if (isAnime) "Scarica Episodio $selectedNumber$audioSuffix" else "Scarica Capitolo $selectedNumber",
                         fontSize = 14.sp
                     )
                 }

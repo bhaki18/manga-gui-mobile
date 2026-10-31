@@ -42,6 +42,8 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.mangagui.app.model.StreamData
 import com.mangagui.app.ui.theme.CrunchyrollOrange
+import com.mangagui.app.ui.theme.DubGreen
+import com.mangagui.app.ui.theme.SubBlue
 
 enum class VideoResizeMode(val title: String, val mode: Int) {
     FIT("Adatta (Originale)", AspectRatioFrameLayout.RESIZE_MODE_FIT),
@@ -94,6 +96,14 @@ fun PlayerScreen(
 
     var playbackSpeed by remember { mutableFloatStateOf(1.0f) }
     var selectedResizeMode by remember { mutableStateOf(VideoResizeMode.FIT) }
+
+    var currentUrl by remember { mutableStateOf(streamData.streamUrl ?: "") }
+    var currentAudioTrack by remember {
+        mutableStateOf(
+            streamData.availableAudios.firstOrNull { streamData.options[it] == streamData.streamUrl }
+                ?: if (title.contains("DUB", ignoreCase = true)) "dub" else "sub"
+        )
+    }
 
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
 
@@ -217,6 +227,37 @@ fun PlayerScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Audio Track Toggle Pill (if multiple audios available)
+                    if (streamData.options.containsKey("sub") && streamData.options.containsKey("dub")) {
+                        val isDub = currentAudioTrack.equals("dub", ignoreCase = true)
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isDub) DubGreen.copy(alpha = 0.35f) else SubBlue.copy(alpha = 0.35f),
+                            modifier = Modifier.clickable {
+                                val nextAudio = if (isDub) "sub" else "dub"
+                                val nextUrl = streamData.options[nextAudio]
+                                if (!nextUrl.isNullOrBlank()) {
+                                    val currentPos = exoPlayer.currentPosition
+                                    val isPlaying = exoPlayer.playWhenReady
+                                    exoPlayer.setMediaItem(MediaItem.fromUri(nextUrl))
+                                    exoPlayer.prepare()
+                                    exoPlayer.seekTo(currentPos)
+                                    exoPlayer.playWhenReady = isPlaying
+                                    currentAudioTrack = nextAudio
+                                    currentUrl = nextUrl
+                                }
+                            }
+                        ) {
+                            Text(
+                                text = if (isDub) "DUB ITA" else "SUB ITA",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDub) DubGreen else Color.White,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+
                     // Skip Opening Button (+85s)
                     Surface(
                         shape = RoundedCornerShape(8.dp),
@@ -345,6 +386,80 @@ fun PlayerScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
+                    // Audio Track Selector (if available)
+                    if (streamData.options.containsKey("sub") && streamData.options.containsKey("dub")) {
+                        Text(
+                            text = "Traccia Audio:",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val isSub = currentAudioTrack.equals("sub", ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSub) SubBlue else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        val targetUrl = streamData.options["sub"]
+                                        if (!targetUrl.isNullOrBlank() && targetUrl != currentUrl) {
+                                            val currentPos = exoPlayer.currentPosition
+                                            val isPlaying = exoPlayer.playWhenReady
+                                            exoPlayer.setMediaItem(MediaItem.fromUri(targetUrl))
+                                            exoPlayer.prepare()
+                                            exoPlayer.seekTo(currentPos)
+                                            exoPlayer.playWhenReady = isPlaying
+                                            currentAudioTrack = "sub"
+                                            currentUrl = targetUrl
+                                        }
+                                    }
+                            ) {
+                                Text(
+                                    text = "SUB ITA",
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSub) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSub) Color.White else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
+
+                            val isDub = currentAudioTrack.equals("dub", ignoreCase = true)
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isDub) DubGreen else MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable {
+                                        val targetUrl = streamData.options["dub"]
+                                        if (!targetUrl.isNullOrBlank() && targetUrl != currentUrl) {
+                                            val currentPos = exoPlayer.currentPosition
+                                            val isPlaying = exoPlayer.playWhenReady
+                                            exoPlayer.setMediaItem(MediaItem.fromUri(targetUrl))
+                                            exoPlayer.prepare()
+                                            exoPlayer.seekTo(currentPos)
+                                            exoPlayer.playWhenReady = isPlaying
+                                            currentAudioTrack = "dub"
+                                            currentUrl = targetUrl
+                                        }
+                                    }
+                            ) {
+                                Text(
+                                    text = "DUB ITA",
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isDub) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isDub) Color.Black else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+
                     // 1. Playback Speed Selector
                     Text(
                         text = "Velocità di Riproduzione:",

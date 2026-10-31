@@ -27,7 +27,7 @@ class DownloadService(private val context: Context) {
         return if (mb >= 1000) String.format("%.1f GB", mb / 1024.0) else String.format("%.1f MB", mb)
     }
 
-    suspend fun downloadItem(item: MediaItem, number: Int, onProgress: (String) -> Unit): Boolean = withContext(Dispatchers.IO) {
+    suspend fun downloadItem(item: MediaItem, number: Int, preferredAudio: String? = null, onProgress: (String) -> Unit): Boolean = withContext(Dispatchers.IO) {
         val isManga = item.type.equals("manga", ignoreCase = true)
         val safeTitle = sanitizeFilename(item.title)
         val targetDir = File(if (isManga) mangaDir else animeDir, safeTitle).also { it.mkdirs() }
@@ -75,7 +75,12 @@ class DownloadService(private val context: Context) {
                     return@withContext false
                 }
 
-                val stream = prov.getEpisodeStream(targetEp.url, item.audio ?: "subita")
+                val targetAudio = when {
+                    !preferredAudio.isNullOrBlank() -> preferredAudio
+                    item.audio?.lowercase() in listOf("dub", "ita") -> "dub"
+                    else -> "subita"
+                }
+                val stream = prov.getEpisodeStream(targetEp.url, targetAudio)
                 val streamUrl = stream.streamUrl
                 if (streamUrl.isNullOrBlank()) {
                     onProgress("Impossibile estrarre lo stream video")

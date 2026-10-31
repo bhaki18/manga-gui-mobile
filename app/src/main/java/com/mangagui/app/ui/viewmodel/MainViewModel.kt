@@ -410,7 +410,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun downloadCurrentItem() {
+    fun downloadCurrentItem(preferredAudio: String? = null) {
         val item = _selectedItem.value ?: return
         if (_isDownloading.value) return
         val num = _selectedNumber.value
@@ -420,7 +420,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _statusText.value = "Starting download for ${item.title}..."
             _downloadProgressText.value = "Starting..."
 
-            val success = downloadService.downloadItem(item, num) { prog ->
+            val activeFilterAudio = Filters.normalizeAudio(_selectedAudioFilter.value)
+            val audioToUse = when {
+                !preferredAudio.isNullOrBlank() -> preferredAudio
+                activeFilterAudio in listOf("dub", "ita") -> "dub"
+                activeFilterAudio in listOf("sub", "subita") -> "sub"
+                else -> item.audio
+            }
+
+            val success = downloadService.downloadItem(item, num, audioToUse) { prog ->
                 _downloadProgressText.value = prog
                 _statusText.value = "Downloading ${item.title}: $prog"
             }
@@ -464,7 +472,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    suspend fun getStreamForPlayback(item: MediaItem, number: Int): StreamData? = withContext(Dispatchers.IO) {
+    suspend fun getStreamForPlayback(item: MediaItem, number: Int, preferredAudio: String? = null): StreamData? = withContext(Dispatchers.IO) {
         try {
             // Check if downloaded offline file exists
             if (item.isDownloaded && !item.localPath.isNullOrBlank()) {
@@ -481,7 +489,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val episodes = prov.getEpisodes(item.url ?: item.id)
             val targetEp = episodes.find { it.number == number } ?: episodes.getOrNull(number - 1)
             if (targetEp != null) {
-                val stream = prov.getEpisodeStream(targetEp.url, item.audio ?: "subita")
+                val activeFilterAudio = Filters.normalizeAudio(_selectedAudioFilter.value)
+                val targetAudio = when {
+                    !preferredAudio.isNullOrBlank() -> preferredAudio
+                    activeFilterAudio in listOf("dub", "ita") -> "dub"
+                    activeFilterAudio in listOf("sub", "subita") -> "sub"
+                    item.audio?.lowercase() in listOf("dub", "ita") -> "dub"
+                    else -> "sub"
+                }
+
+                val stream = prov.getEpisodeStream(targetEp.url, targetAudio)
                 // Mark as watched
                 historyService.markWatched(item, number)
                 return@withContext stream

@@ -285,12 +285,30 @@ class OnePiecePowerAnimeProvider : AnimeProvider {
                 }
             }
 
-            val streamUrl = when (preferredAudio?.lowercase()) {
-                "ita", "dub" -> ita ?: subita ?: direct
-                else -> subita ?: ita ?: direct
+            val options = mutableMapOf<String, String?>()
+            val available = mutableListOf<String>()
+            if (!subita.isNullOrBlank()) {
+                options["sub"] = subita
+                available.add("sub")
+            }
+            if (!ita.isNullOrBlank()) {
+                options["dub"] = ita
+                available.add("dub")
             }
 
-            StreamData(streamUrl = streamUrl, referer = "$baseUrl/")
+            val isDubPreferred = preferredAudio?.lowercase() in listOf("dub", "ita", "doppiato")
+            val streamUrl = if (isDubPreferred) {
+                ita ?: subita ?: direct
+            } else {
+                subita ?: ita ?: direct
+            }
+
+            StreamData(
+                streamUrl = streamUrl,
+                options = options,
+                availableAudios = available,
+                referer = "$baseUrl/"
+            )
         } catch (_: Exception) {
             StreamData(streamUrl = null, referer = "$baseUrl/")
         }

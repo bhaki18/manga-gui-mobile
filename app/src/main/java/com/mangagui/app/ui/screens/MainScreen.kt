@@ -272,20 +272,22 @@ fun MainScreen(
             item = item,
             selectedNumber = selectedNumber,
             maxNumber = maxNumber,
+            initialAudioFilter = selectedAudioFilter,
             onNumberChange = { viewModel.setNumber(it) },
             onUnmarkWatched = { num -> viewModel.unmarkWatched(item, num) },
-            onPlayOrRead = {
+            onPlayOrRead = { chosenAudio ->
                 val isAnime = item.type.equals("anime", ignoreCase = true)
                 isResolvingMedia = true
                 coroutineScope.launch {
                     try {
                         if (isAnime) {
-                            val stream = viewModel.getStreamForPlayback(item, selectedNumber)
+                            val stream = viewModel.getStreamForPlayback(item, selectedNumber, chosenAudio)
                             isResolvingMedia = false
                             if (stream != null) {
-                                onNavigateToPlayer(item.title + " - Ep. $selectedNumber", stream)
+                                val audioTag = if (chosenAudio.isNotBlank()) " (${chosenAudio.uppercase()})" else ""
+                                onNavigateToPlayer(item.title + " - Ep. $selectedNumber$audioTag", stream)
                             } else {
-                                Toast.makeText(context, "Impossibile riprodurre l'episodio $selectedNumber", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Impossibile riprodurre l'episodio $selectedNumber in versione ${chosenAudio.uppercase()}", Toast.LENGTH_SHORT).show()
                             }
                         } else {
                             val pages = viewModel.getChapterPagesForReading(item, selectedNumber)
@@ -302,7 +304,7 @@ fun MainScreen(
                     }
                 }
             },
-            onDownload = { viewModel.downloadCurrentItem() },
+            onDownload = { chosenAudio -> viewModel.downloadCurrentItem(chosenAudio) },
             onDeleteDownload = { viewModel.deleteDownloadedItem(item) },
             isDownloading = isDownloading,
             downloadProgressText = downloadProgressText,
