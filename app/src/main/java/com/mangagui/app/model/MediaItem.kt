@@ -59,15 +59,20 @@ data class MediaItem(
     val hasSub: Boolean
         get() {
             if (type.equals("manga", ignoreCase = true)) return false
-            val a = audio?.lowercase()?.trim()
-            return a == null || a.isEmpty() || a == "both" || a == "sub" || a == "subita" || a.contains("sub")
+            val a = audio?.lowercase()?.trim() ?: return true
+            if (a.isEmpty()) return true
+            if (a == "both" || a.contains("both") || a.contains("ita/sub") || a.contains("sub/dub")) return true
+            return a == "sub" || a == "subita" || a.contains("sub")
         }
 
     val hasDub: Boolean
         get() {
             if (type.equals("manga", ignoreCase = true)) return false
-            val a = audio?.lowercase()?.trim()
-            return a != null && (a == "both" || a == "dub" || a == "ita" || a.contains("dub") || a.contains("ita"))
+            val a = audio?.lowercase()?.trim() ?: return false
+            if (a.isEmpty()) return false
+            if (a == "both" || a.contains("both") || a.contains("ita/sub") || a.contains("sub/dub")) return true
+            if (a == "dub" || a == "ita" || a.contains("dub") || a.contains("doppiato")) return true
+            return a.contains("ita") && !a.contains("sub")
         }
 
     val audioBadge: String

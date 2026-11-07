@@ -103,12 +103,12 @@ fun ReaderScreen(
                     modifier = Modifier.size(48.dp)
                 )
                 Text(
-                    text = "Nessuna pagina disponibile per questo capitolo.",
+                    text = "No pages available for this chapter.",
                     color = Color.White,
                     fontSize = 14.sp
                 )
                 OutlinedButton(onClick = onBack) {
-                    Text("Torna indietro")
+                    Text("Go Back")
                 }
             }
         }
@@ -404,7 +404,7 @@ fun ReaderScreen(
                             ) {
                                 Icon(Icons.AutoMirrored.Filled.NavigateBefore, contentDescription = null)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Cap. Prec.")
+                                Text("Prev Ch.")
                             }
                         } else {
                             Spacer(modifier = Modifier.width(40.dp))
@@ -428,7 +428,7 @@ fun ReaderScreen(
                                 onClick = onNextChapter,
                                 colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
                             ) {
-                                Text("Cap. Succ.")
+                                Text("Next Ch.")
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
                             }

@@ -58,9 +58,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class VideoResizeMode(val title: String, val mode: Int) {
-    FIT("Adatta (Originale)", AspectRatioFrameLayout.RESIZE_MODE_FIT),
-    ZOOM("Riempi Schermo (Zoom)", AspectRatioFrameLayout.RESIZE_MODE_ZOOM),
-    FILL("Espandi (Stretch)", AspectRatioFrameLayout.RESIZE_MODE_FILL)
+    FIT("Fit (Original)", AspectRatioFrameLayout.RESIZE_MODE_FIT),
+    ZOOM("Zoom (Fill Screen)", AspectRatioFrameLayout.RESIZE_MODE_ZOOM),
+    FILL("Stretch (Full)", AspectRatioFrameLayout.RESIZE_MODE_FILL)
 }
 
 @OptIn(UnstableApi::class)
@@ -334,7 +334,7 @@ fun PlayerScreen(
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Torna indietro"
+                            contentDescription = "Go Back"
                         )
                     }
 
@@ -376,7 +376,7 @@ fun PlayerScreen(
                             }
                         ) {
                             Text(
-                                text = if (isDub) "DUB ITA" else "SUB ITA",
+                                text = if (isDub) "DUB" else "SUB",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isDub) DubGreen else Color.White,
@@ -400,13 +400,13 @@ fun PlayerScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FastForward,
-                                contentDescription = "Salta Sigla (+85s)",
+                                contentDescription = "Skip Intro (+85s)",
                                 tint = CrunchyrollOrange,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "+85s Sigla",
+                                text = "+85s Intro",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = CrunchyrollOrange
@@ -424,7 +424,7 @@ fun PlayerScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Impostazioni Riproduzione",
+                            contentDescription = "Playback Settings",
                             tint = Color.White
                         )
                     }
@@ -501,7 +501,7 @@ fun PlayerScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Impostazioni Riproduzione",
+                        text = "Playback Settings",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )

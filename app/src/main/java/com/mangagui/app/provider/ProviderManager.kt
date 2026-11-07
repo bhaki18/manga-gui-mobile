@@ -54,16 +54,26 @@ object ProviderManager {
             .trim()
     }
 
+    private fun checkHasSub(audio: String?): Boolean {
+        val a = audio?.lowercase()?.trim() ?: return true
+        if (a.isEmpty()) return true
+        if (a == "both" || a.contains("both") || a.contains("ita/sub") || a.contains("sub/dub")) return true
+        return a == "sub" || a == "subita" || a.contains("sub")
+    }
+
+    private fun checkHasDub(audio: String?): Boolean {
+        val a = audio?.lowercase()?.trim() ?: return false
+        if (a.isEmpty()) return false
+        if (a == "both" || a.contains("both") || a.contains("ita/sub") || a.contains("sub/dub")) return true
+        if (a == "dub" || a == "ita" || a.contains("dub") || a.contains("doppiato")) return true
+        return a.contains("ita") && !a.contains("sub")
+    }
+
     private fun mergeAudio(a1: String?, a2: String?): String {
         val norm1 = a1?.lowercase()?.trim() ?: ""
         val norm2 = a2?.lowercase()?.trim() ?: ""
-        val hasSub1 = norm1 == "both" || norm1 == "sub" || norm1 == "subita" || norm1.contains("sub")
-        val hasSub2 = norm2 == "both" || norm2 == "sub" || norm2 == "subita" || norm2.contains("sub")
-        val hasDub1 = norm1 == "both" || norm1 == "dub" || norm1 == "ita" || norm1.contains("dub") || norm1.contains("ita")
-        val hasDub2 = norm2 == "both" || norm2 == "dub" || norm2 == "ita" || norm2.contains("dub") || norm2.contains("ita")
-
-        val hasSub = hasSub1 || hasSub2
-        val hasDub = hasDub1 || hasDub2
+        val hasSub = checkHasSub(norm1) || checkHasSub(norm2)
+        val hasDub = checkHasDub(norm1) || checkHasDub(norm2)
 
         return when {
             hasSub && hasDub -> "both"

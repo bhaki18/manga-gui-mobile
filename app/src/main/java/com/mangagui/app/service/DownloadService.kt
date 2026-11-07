@@ -146,7 +146,7 @@ class DownloadService(private val context: Context) {
                             count = if (numbers.isNotEmpty()) numbers.maxOrNull() ?: videoFiles.size else videoFiles.size,
                             watchedNumbers = if (numbers.isNotEmpty()) numbers else listOf(1),
                             downloadSizeText = formatSize(totalBytes),
-                            customSubDubText = "${videoFiles.size} ${if (videoFiles.size == 1) "episodio" else "episodi"} (${formatSize(totalBytes)})"
+                            customSubDubText = "${videoFiles.size} ${if (videoFiles.size == 1) "episode" else "episodes"} (${formatSize(totalBytes)})"
                         )
                     )
                 }
@@ -187,7 +187,7 @@ class DownloadService(private val context: Context) {
                             count = count,
                             watchedNumbers = validNumbers,
                             downloadSizeText = formatSize(totalBytes),
-                            customSubDubText = "${validNumbers.size} ${if (validNumbers.size == 1) "capitolo" else "capitoli"} (${formatSize(totalBytes)})"
+                            customSubDubText = "${validNumbers.size} ${if (validNumbers.size == 1) "chapter" else "chapters"} (${formatSize(totalBytes)})"
                         )
                     )
                 }

@@ -109,7 +109,7 @@ fun MainScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "Aggiorna",
+                            contentDescription = "Refresh",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -287,20 +287,20 @@ fun MainScreen(
                                 val audioTag = if (chosenAudio.isNotBlank()) " (${chosenAudio.uppercase()})" else ""
                                 onNavigateToPlayer(item.title + " - Ep. $selectedNumber$audioTag", stream)
                             } else {
-                                Toast.makeText(context, "Impossibile riprodurre l'episodio $selectedNumber in versione ${chosenAudio.uppercase()}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Unable to play episode $selectedNumber (${chosenAudio.uppercase()})", Toast.LENGTH_SHORT).show()
                             }
                         } else {
                             val pages = viewModel.getChapterPagesForReading(item, selectedNumber)
                             isResolvingMedia = false
                             if (pages != null && pages.pages.isNotEmpty()) {
-                                onNavigateToReader(item.title + " - Cap. $selectedNumber", pages)
+                                onNavigateToReader(item.title + " - Ch. $selectedNumber", pages)
                             } else {
-                                Toast.makeText(context, "Impossibile caricare il capitolo $selectedNumber", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Unable to load chapter $selectedNumber", Toast.LENGTH_SHORT).show()
                             }
                         }
                     } catch (e: Exception) {
                         isResolvingMedia = false
-                        Toast.makeText(context, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             },
