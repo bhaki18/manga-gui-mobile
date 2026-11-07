@@ -44,7 +44,7 @@ class DownloadService(private val context: Context) {
             }
 
             if (isManga) {
-                onProgress("Recupero capitoli manga...")
+                onProgress("Fetching manga chapters...")
                 val prov = ProviderManager.getMangaProvider(item.source)
                     ?: ProviderManager.mangaProviders.firstOrNull { it.languages.contains(item.language) || it.languages.contains("all") }
                     ?: return@withContext false
@@ -52,14 +52,14 @@ class DownloadService(private val context: Context) {
                 val chapters = prov.getChapters(item.url ?: item.id, item.language)
                 val targetCh = chapters.find { it.number == number.toString() } ?: chapters.getOrNull(number - 1)
                 if (targetCh == null) {
-                    onProgress("Capitolo $number non trovato")
+                    onProgress("Chapter $number not found")
                     return@withContext false
                 }
 
-                onProgress("Recupero pagine capitolo ${targetCh.number}...")
+                onProgress("Fetching pages for chapter ${targetCh.number}...")
                 val chPages = prov.getChapterPages(targetCh.url)
                 if (chPages.pages.isEmpty()) {
-                    onProgress("Nessuna pagina trovata per il capitolo")
+                    onProgress("No pages found for chapter")
                     return@withContext false
                 }
 
@@ -70,19 +70,19 @@ class DownloadService(private val context: Context) {
                     val ext = if (rawExt in listOf("jpg", "jpeg", "png", "webp", "gif", "avif")) rawExt else "jpg"
                     val pageFile = File(chapterDir, "page_${String.format("%03d", pageNum)}.$ext")
                     if (!pageFile.exists() || pageFile.length() == 0L) {
-                        onProgress("Download pagina $pageNum / ${chPages.pages.size}...")
+                        onProgress("Downloading page $pageNum / ${chPages.pages.size}...")
                         NetworkClient.downloadToFile(pageUrl, pageFile, chPages.referer ?: item.url)
                     }
                 }
-                onProgress("✔ Download completato!")
+                onProgress("✔ Download completed!")
                 return@withContext true
             } else {
-                onProgress("Recupero stream episodio $number...")
+                onProgress("Fetching stream for episode $number...")
                 val prov = ProviderManager.getAnimeProvider(item.source) ?: ProviderManager.animeProviders.first()
                 val episodes = prov.getEpisodes(item.url ?: item.id)
                 val targetEp = episodes.find { it.number == number } ?: episodes.getOrNull(number - 1)
                 if (targetEp == null) {
-                    onProgress("Episodio $number non trovato")
+                    onProgress("Episode $number not found")
                     return@withContext false
                 }
 
@@ -94,22 +94,22 @@ class DownloadService(private val context: Context) {
                 val stream = prov.getEpisodeStream(targetEp.url, targetAudio)
                 val streamUrl = stream.streamUrl
                 if (streamUrl.isNullOrBlank()) {
-                    onProgress("Impossibile estrarre lo stream video")
+                    onProgress("Unable to extract video stream")
                     return@withContext false
                 }
 
                 val epFile = File(targetDir, "Episode_$number.mp4")
-                onProgress("Download video in corso...")
+                onProgress("Downloading video...")
                 NetworkClient.downloadToFile(streamUrl, epFile, stream.referer) { current, total ->
                     val percent = if (total > 0) (current * 100 / total).toInt() else 0
                     val sizeText = formatSize(current)
                     onProgress("$percent% ($sizeText)")
                 }
-                onProgress("✔ Download completato!")
+                onProgress("✔ Download completed!")
                 return@withContext true
             }
         } catch (ex: Exception) {
-            onProgress("Errore download: ${ex.message}")
+            onProgress("Download error: ${ex.message}")
             false
         }
     }

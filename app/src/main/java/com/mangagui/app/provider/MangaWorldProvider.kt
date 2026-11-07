@@ -136,7 +136,7 @@ class MangaWorldProvider : MangaProvider {
                     Chapter(
                         id = chapNum,
                         number = chapNum,
-                        title = "[IT] ${spanText ?: "Capitolo $chapNum"}",
+                        title = "[IT] ${spanText ?: "Chapter $chapNum"}",
                         url = if (cleanHref.startsWith("http")) cleanHref else "$baseUrl$cleanHref"
                     )
                 )

@@ -1,9 +1,9 @@
 package com.mangagui.app.ui.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -27,9 +27,9 @@ fun BottomNavBar(
 ) {
     val items = listOf(
         NavItem("Anime", "Anime", Icons.Default.Movie),
-        NavItem("Manga", "Manga", Icons.Default.MenuBook),
-        NavItem("Downloaded", "Scaricati", Icons.Default.Download),
-        NavItem("History", "Cronologia", Icons.Default.History)
+        NavItem("Manga", "Manga", Icons.AutoMirrored.Filled.MenuBook),
+        NavItem("Downloaded", "Downloaded", Icons.Default.Download),
+        NavItem("History", "History", Icons.Default.History)
     )
 
     NavigationBar(

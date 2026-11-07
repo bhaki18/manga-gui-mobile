@@ -32,14 +32,14 @@ fun UpdateDialog(
         icon = {
             Icon(
                 imageVector = Icons.Default.SystemUpdate,
-                contentDescription = "Aggiornamento disponibile",
+                contentDescription = "Update available",
                 tint = CrunchyrollOrange,
                 modifier = Modifier.size(36.dp)
             )
         },
         title = {
             Text(
-                text = "Nuovo Aggiornamento!",
+                text = "New Update Available!",
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp
             )
@@ -50,7 +50,7 @@ fun UpdateDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "È disponibile una nuova versione di Manga GUI:",
+                    text = "A new version of Manga GUI is available:",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -60,12 +60,12 @@ fun UpdateDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Versione attuale: v$currentVersion",
+                        text = "Current version: v$currentVersion",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Nuova: v$onlineVersion",
+                        text = "New: v$onlineVersion",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = CrunchyrollOrange
@@ -75,7 +75,7 @@ fun UpdateDialog(
                 if (!changelog.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Novità:",
+                        text = "What's new:",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -99,7 +99,7 @@ fun UpdateDialog(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Scaricamento in corso... ${(downloadProgress * 100).toInt()}%",
+                        text = "Downloading... ${(downloadProgress * 100).toInt()}%",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -117,14 +117,14 @@ fun UpdateDialog(
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Aggiorna Ora", fontWeight = FontWeight.Bold)
+                    Text("Update Now", fontWeight = FontWeight.Bold)
                 }
             }
         },
         dismissButton = {
             if (!isDownloading) {
                 TextButton(onClick = onDismiss) {
-                    Text("Più tardi", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Later", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

@@ -169,7 +169,7 @@ class AnimeSaturnProvider : AnimeProvider {
                 episodes.add(
                     Episode(
                         id = epNum,
-                        title = "Episodio $epNum",
+                        title = "Episode $epNum",
                         url = fullUrl,
                         number = numInt
                     )

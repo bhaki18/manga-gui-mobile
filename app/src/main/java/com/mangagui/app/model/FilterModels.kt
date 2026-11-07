@@ -18,25 +18,25 @@ object Filters {
         "Shounen",
         "Seinen",
         "Isekai",
-        "Action (Azione)",
-        "Adventure (Avventura)",
+        "Action",
+        "Adventure",
         "Fantasy",
-        "Comedy (Commedia)",
-        "Romance (Romantico)",
-        "Drama (Drammatico)",
-        "Sci-Fi (Fantascienza)",
+        "Comedy",
+        "Romance",
+        "Drama",
+        "Sci-Fi",
         "Horror",
-        "Mystery (Mistero)",
-        "Supernatural (Soprannaturale)",
+        "Mystery",
+        "Supernatural",
         "Slice of Life",
-        "Sports (Sport)",
-        "Psychological (Psicologico)",
+        "Sports",
+        "Psychological",
         "Thriller",
         "Ecchi",
         "Mecha",
-        "Martial Arts (Arti Marziali)",
-        "School (Scolastico)",
-        "Historical (Storico)",
+        "Martial Arts",
+        "School",
+        "Historical",
         "Shoujo"
     )
 
@@ -45,16 +45,16 @@ object Filters {
         "Shounen",
         "Isekai",
         "Seinen",
-        "Action (Azione)",
+        "Action",
         "Fantasy",
-        "Comedy (Commedia)",
-        "Romance (Romantico)",
+        "Comedy",
+        "Romance",
         "Horror",
-        "Mystery (Mistero)",
-        "Sports (Sport)",
-        "Psychological (Psicologico)",
+        "Mystery",
+        "Sports",
+        "Psychological",
         "Slice of Life",
-        "Sci-Fi (Fantascienza)"
+        "Sci-Fi"
     )
 
     val LANGUAGES = listOf(
@@ -179,37 +179,37 @@ object Filters {
         if (code.isBlank() || code == "all") {
             return AudioOptionData(
                 "All Audio (Sub & Dub)",
-                "Sub (Subtitled / Sottotitolato)",
-                "Dub (Dubbed / Doppiato)",
-                "💬 Solo Sub",
-                "🎙️ Solo Dub"
+                "Sub (Subtitled)",
+                "Dub (Dubbed)",
+                "💬 Sub Only",
+                "🎙️ Dub Only"
             )
         }
         val upper = code.uppercase()
         val (flag, subDesc, dubDesc) = when (code) {
-            "it" -> Triple("🇮🇹", "Sottotitolato", "Doppiato")
+            "it" -> Triple("🇮🇹", "Subtitled", "Dubbed")
             "en" -> Triple("🇬🇧", "Subtitled", "Dubbed")
-            "es" -> Triple("🇪🇸", "Subtitulado", "Doblado")
-            "fr" -> Triple("🇫🇷", "Sous-titré", "Doublé")
-            "de" -> Triple("🇩🇪", "Untertitelt", "Synchronisiert")
-            "pt-br" -> Triple("🇧🇷", "Legendado", "Dublado")
-            "ru" -> Triple("🇷🇺", "Субтитры", "Дубляж")
+            "es" -> Triple("🇪🇸", "Subtitled", "Dubbed")
+            "fr" -> Triple("🇫🇷", "Subtitled", "Dubbed")
+            "de" -> Triple("🇩🇪", "Subtitled", "Dubbed")
+            "pt-br" -> Triple("🇧🇷", "Subtitled", "Dubbed")
+            "ru" -> Triple("🇷🇺", "Subtitled", "Dubbed")
             "ja" -> Triple("🇯🇵", "Subtitled", "Original / Dub")
-            "ar" -> Triple("🇸🇦", "مترجم", "مدبلج")
-            "pl" -> Triple("🇵🇱", "Napisy", "Dubbing")
-            "tr" -> Triple("🇹🇷", "Altyazılı", "Dublaj")
-            "id" -> Triple("🇮🇩", "Subtitle", "Dubbing")
-            "vi" -> Triple("🇻🇳", "Vietsub", "Thuyết minh")
-            "ko" -> Triple("🇰🇷", "자막", "더빙")
-            "zh" -> Triple("🇨🇳", "字幕", "配音")
+            "ar" -> Triple("🇸🇦", "Subtitled", "Dubbed")
+            "pl" -> Triple("🇵🇱", "Subtitled", "Dubbed")
+            "tr" -> Triple("🇹🇷", "Subtitled", "Dubbed")
+            "id" -> Triple("🇮🇩", "Subtitled", "Dubbed")
+            "vi" -> Triple("🇻🇳", "Subtitled", "Dubbed")
+            "ko" -> Triple("🇰🇷", "Subtitled", "Dubbed")
+            "zh" -> Triple("🇨🇳", "Subtitled", "Dubbed")
             else -> Triple("🌐", "Subtitled", "Dubbed")
         }
         return AudioOptionData(
             "All Audio (Sub & Dub - $upper)",
             "Sub $upper ($subDesc)",
             "Dub $upper ($dubDesc)",
-            "$flag Solo Sub $upper",
-            "$flag Solo Dub $upper"
+            "$flag Sub Only ($upper)",
+            "$flag Dub Only ($upper)"
         )
     }
 

@@ -45,7 +45,7 @@ class OnePiecePowerAnimeProvider : AnimeProvider {
         list.add(
             MediaItem(
                 id = "onepiece-ita",
-                title = "One Piece (ITA Doppiato)",
+                title = "One Piece (ITA Dubbed)",
                 url = "$baseUrl/anime18/onepiece/ita3/lista-episodi",
                 language = "it",
                 audio = "ita",
@@ -191,7 +191,7 @@ class OnePiecePowerAnimeProvider : AnimeProvider {
                     val epMatch = Regex("""pagine/(?:[^/]+/)?(\d+)""").find(fullUrl)
                     val epNum = epMatch?.groupValues?.get(1).orEmpty()
                     if (title.isBlank() && epNum.isNotBlank()) {
-                        title = "Episodio ${epNum.toIntOrNull() ?: epNum}"
+                        title = "Episode ${epNum.toIntOrNull() ?: epNum}"
                     }
                     val numInt = epNum.toIntOrNull() ?: episodes.size + 1
                     episodes.add(
@@ -213,7 +213,7 @@ class OnePiecePowerAnimeProvider : AnimeProvider {
                     val epMatch = Regex("""pagine/(?:[^/]+/)?(\d+)""").find(fullUrl)
                     val epNum = epMatch?.groupValues?.get(1).orEmpty()
                     if (title.isBlank() && epNum.isNotBlank()) {
-                        title = "Episodio ${epNum.toIntOrNull() ?: epNum}"
+                        title = "Episode ${epNum.toIntOrNull() ?: epNum}"
                     }
                     val numInt = epNum.toIntOrNull() ?: episodes.size + 1
                     episodes.add(

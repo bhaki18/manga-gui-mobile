@@ -222,7 +222,7 @@ fun PlayerScreen(
                         reloadAndResume(lastPositionMs)
                     }
                 } else {
-                    errorMessage = "Errore di connessione durante lo streaming. Tocca Riprova per riconnetterti."
+                    errorMessage = "Streaming connection error. Tap Retry to reconnect."
                 }
             }
         }
@@ -461,7 +461,7 @@ fun PlayerScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Warning,
-                        contentDescription = "Errore",
+                        contentDescription = "Error",
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(36.dp)
                     )
@@ -480,7 +480,7 @@ fun PlayerScreen(
                             contentColor = Color.Black
                         )
                     ) {
-                        Text("Riprova")
+                        Text("Retry")
                     }
                 }
             }
@@ -518,7 +518,7 @@ fun PlayerScreen(
                     // Audio Track Selector (if available)
                     if (streamData.options.containsKey("sub") && streamData.options.containsKey("dub")) {
                         Text(
-                            text = "Traccia Audio:",
+                            text = "Audio Track:",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -548,7 +548,7 @@ fun PlayerScreen(
                                     }
                             ) {
                                 Text(
-                                    text = "SUB ITA",
+                                    text = "SUB",
                                     fontSize = 12.sp,
                                     fontWeight = if (isSub) FontWeight.Bold else FontWeight.Normal,
                                     color = if (isSub) Color.White else MaterialTheme.colorScheme.onSurface,
@@ -578,7 +578,7 @@ fun PlayerScreen(
                                     }
                             ) {
                                 Text(
-                                    text = "DUB ITA",
+                                    text = "DUB",
                                     fontSize = 12.sp,
                                     fontWeight = if (isDub) FontWeight.Bold else FontWeight.Normal,
                                     color = if (isDub) Color.Black else MaterialTheme.colorScheme.onSurface,
@@ -591,7 +591,7 @@ fun PlayerScreen(
 
                     // 1. Playback Speed Selector
                     Text(
-                        text = "Velocità di Riproduzione:",
+                        text = "Playback Speed:",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -627,7 +627,7 @@ fun PlayerScreen(
 
                     // 2. Video Resize Mode (Fit / Zoom / Stretch)
                     Text(
-                        text = "Formato Schermo:",
+                        text = "Aspect Ratio:",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -650,9 +650,9 @@ fun PlayerScreen(
                             ) {
                                 Text(
                                     text = when (mode) {
-                                        VideoResizeMode.FIT -> "Originale"
-                                        VideoResizeMode.ZOOM -> "Riempi"
-                                        VideoResizeMode.FILL -> "Espandi"
+                                        VideoResizeMode.FIT -> "Fit"
+                                        VideoResizeMode.ZOOM -> "Crop"
+                                        VideoResizeMode.FILL -> "Stretch"
                                     },
                                     fontSize = 12.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
@@ -666,7 +666,7 @@ fun PlayerScreen(
 
                     // 3. Skip Buttons
                     Text(
-                        text = "Salto Rapido:",
+                        text = "Quick Skip:",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -704,14 +704,14 @@ fun PlayerScreen(
                             ),
                             modifier = Modifier.weight(1.2f)
                         ) {
-                            Text("+85s Sigla", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("+85s Intro", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { showSettingsDialog = false }) {
-                    Text("Chiudi", color = CrunchyrollOrange, fontWeight = FontWeight.Bold)
+                    Text("Close", color = CrunchyrollOrange, fontWeight = FontWeight.Bold)
                 }
             }
         )

@@ -223,7 +223,7 @@ fun ReaderScreen(
 
                 SubcomposeAsyncImage(
                     model = request,
-                    contentDescription = "Pagina $currentPage",
+                    contentDescription = "Page $currentPage",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxSize()
@@ -258,7 +258,7 @@ fun ReaderScreen(
                                 modifier = Modifier.size(40.dp)
                             )
                             Text(
-                                text = "Impossibile caricare pagina $currentPage",
+                                text = "Unable to load page $currentPage",
                                 color = Color.Gray,
                                 fontSize = 12.sp
                             )
@@ -295,7 +295,7 @@ fun ReaderScreen(
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Chiudi Lettore",
+                                contentDescription = "Close Reader",
                                 tint = Color.White
                             )
                         }
@@ -415,7 +415,7 @@ fun ReaderScreen(
                             color = CrunchyrollOrange.copy(alpha = 0.2f)
                         ) {
                             Text(
-                                text = "Pagina $currentPage di $totalPages",
+                                text = "Page $currentPage of $totalPages",
                                 color = CrunchyrollOrange,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,

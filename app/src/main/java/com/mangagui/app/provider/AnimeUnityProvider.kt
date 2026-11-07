@@ -278,7 +278,7 @@ class AnimeUnityProvider : AnimeProvider {
                     episodes.add(
                         Episode(
                             id = epNum,
-                            title = "Episodio $epNum",
+                            title = "Episode $epNum",
                             url = "$baseUrl/embed-url/$epId",
                             number = numInt
                         )

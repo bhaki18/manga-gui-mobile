@@ -281,19 +281,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun enrichCovers(items: List<MediaItem>, type: String) {
         viewModelScope.launch {
             val updated = items.toMutableList()
-            var changed = false
             for (i in updated.indices) {
                 val item = updated[i]
                 if (item.image.isNullOrBlank()) {
                     val cover = coverService.getCover(item.title, type)
                     if (!cover.isNullOrBlank()) {
                         updated[i] = item.copy(image = cover)
-                        changed = true
+                        _items.value = updated.toList()
                     }
                 }
-            }
-            if (changed) {
-                _items.value = updated
             }
         }
     }
@@ -574,7 +570,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (imageFiles.isNotEmpty()) {
                         val uris = imageFiles.map { android.net.Uri.fromFile(it).toString() }
                         historyService.markWatched(item, number)
-                        return@withContext ChapterPages(chapterTitle = "Capitolo $number", pages = uris)
+                        return@withContext ChapterPages(chapterTitle = "Chapter $number", pages = uris)
                     }
                 }
             }

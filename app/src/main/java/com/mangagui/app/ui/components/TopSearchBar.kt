@@ -53,7 +53,7 @@ fun TopSearchBar(
                 },
             placeholder = {
                 Text(
-                    text = "Cerca anime o manga...",
+                    text = "Search anime or manga...",
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     fontSize = 15.sp
                 )
@@ -61,7 +61,7 @@ fun TopSearchBar(
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Search,
-                    contentDescription = "Cerca",
+                    contentDescription = "Search",
                     tint = if (isFocused) CrunchyrollOrange else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },

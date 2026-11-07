@@ -195,9 +195,9 @@ fun MainScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = when (activeTab) {
-                            "Downloaded" -> "Nessun contenuto scaricato offline."
-                            "History" -> "Nessun elemento nella cronologia di visione."
-                            else -> "Nessun risultato trovato con i filtri correnti."
+                            "Downloaded" -> "No content downloaded offline."
+                            "History" -> "No items in watch history."
+                            else -> "No results found with the current filters."
                         },
                         fontSize = 15.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -211,7 +211,7 @@ fun MainScreen(
                             else viewModel.resetFilters()
                         }
                     ) {
-                        Text(if (activeTab == "Downloaded" || activeTab == "History") "Ricarica" else "Azzera Filtri")
+                        Text(if (activeTab == "Downloaded" || activeTab == "History") "Reload" else "Reset Filters")
                     }
                 }
             } else {

@@ -53,12 +53,15 @@ fun DetailsBottomSheet(
     val isAnime = item.type.equals("anime", ignoreCase = true)
     val isWatched = item.watchedNumbers.contains(selectedNumber)
 
-    // Calculate initial audio selection based on item or active filter
+    val hasSub = item.hasSub
+    val hasDub = item.hasDub
+
+    // Calculate initial audio selection strictly respecting availability
     val filterNorm = Filters.normalizeAudio(initialAudioFilter)
     val defaultAudio = when {
-        filterNorm in listOf("dub", "ita") -> "dub"
-        filterNorm in listOf("sub", "subita") -> "sub"
-        item.audio?.lowercase() in listOf("dub", "ita") -> "dub"
+        hasDub && !hasSub -> "dub"
+        hasSub && !hasDub -> "sub"
+        hasDub && (filterNorm in listOf("dub", "ita") || item.audio?.lowercase() in listOf("dub", "ita")) -> "dub"
         else -> "sub"
     }
 
@@ -183,7 +186,7 @@ fun DetailsBottomSheet(
                             .padding(12.dp)
                     ) {
                         Text(
-                            text = "Traccia Audio:",
+                            text = "Audio Track:",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -197,17 +200,21 @@ fun DetailsBottomSheet(
                             val isSub = selectedAudio == "sub"
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (isSub) SubBlue else MaterialTheme.colorScheme.surfaceVariant,
+                                color = when {
+                                    !hasSub -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                                    isSub -> SubBlue
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clickable { selectedAudio = "sub" }
+                                    .clickable(enabled = hasSub) { selectedAudio = "sub" }
                             ) {
                                 Row(
                                     modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    if (isSub) {
+                                    if (isSub && hasSub) {
                                         Icon(
                                             imageVector = Icons.Default.Check,
                                             contentDescription = null,
@@ -217,10 +224,14 @@ fun DetailsBottomSheet(
                                         Spacer(modifier = Modifier.width(6.dp))
                                     }
                                     Text(
-                                        text = "SUB (Sottotitolato)",
+                                        text = if (hasSub) "SUB (Subtitled)" else "SUB (N/A)",
                                         fontSize = 13.sp,
                                         fontWeight = if (isSub) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSub) Color.White else MaterialTheme.colorScheme.onSurface
+                                        color = when {
+                                            !hasSub -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                                            isSub -> Color.White
+                                            else -> MaterialTheme.colorScheme.onSurface
+                                        }
                                     )
                                 }
                             }
@@ -229,17 +240,21 @@ fun DetailsBottomSheet(
                             val isDub = selectedAudio == "dub"
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (isDub) DubGreen else MaterialTheme.colorScheme.surfaceVariant,
+                                color = when {
+                                    !hasDub -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                                    isDub -> DubGreen
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clickable { selectedAudio = "dub" }
+                                    .clickable(enabled = hasDub) { selectedAudio = "dub" }
                             ) {
                                 Row(
                                     modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    if (isDub) {
+                                    if (isDub && hasDub) {
                                         Icon(
                                             imageVector = Icons.Default.Check,
                                             contentDescription = null,
@@ -249,10 +264,14 @@ fun DetailsBottomSheet(
                                         Spacer(modifier = Modifier.width(6.dp))
                                     }
                                     Text(
-                                        text = "DUB (Doppiato)",
+                                        text = if (hasDub) "DUB (Dubbed)" else "DUB (N/A)",
                                         fontSize = 13.sp,
                                         fontWeight = if (isDub) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isDub) Color.Black else MaterialTheme.colorScheme.onSurface
+                                        color = when {
+                                            !hasDub -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                                            isDub -> Color.Black
+                                            else -> MaterialTheme.colorScheme.onSurface
+                                        }
                                     )
                                 }
                             }
@@ -292,7 +311,7 @@ fun DetailsBottomSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (isAnime) "Seleziona Episodio" else "Seleziona Capitolo",
+                            text = if (isAnime) "Select Episode" else "Select Chapter",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -300,9 +319,9 @@ fun DetailsBottomSheet(
 
                         Text(
                             text = if (item.isDownloaded && downloadedList.isNotEmpty()) {
-                                "${downloadedList.size} disponibili offline"
+                                "${downloadedList.size} available offline"
                             } else {
-                                "Totale: $maxNumber"
+                                "Total: $maxNumber"
                             },
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
@@ -331,7 +350,7 @@ fun DetailsBottomSheet(
                             enabled = canGoPrev,
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Icon(Icons.Default.Remove, contentDescription = "Precedente")
+                            Icon(Icons.Default.Remove, contentDescription = "Previous")
                         }
 
                         Column(
@@ -433,9 +452,9 @@ fun DetailsBottomSheet(
 
                             Text(
                                 text = if (item.isDownloaded && downloadedList.isNotEmpty()) {
-                                    "Disponibili offline: ${downloadedList.first()} - ${downloadedList.last()}"
+                                    "Available offline: ${downloadedList.first()} - ${downloadedList.last()}"
                                 } else {
-                                    "Range consentito: 1 - $maxAvailable"
+                                    "Allowed range: 1 - $maxAvailable"
                                 },
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -456,11 +475,11 @@ fun DetailsBottomSheet(
                             enabled = canGoNext,
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Successivo")
+                            Icon(Icons.Default.Add, contentDescription = "Next")
                         }
                     }
 
-                    // Quick Jump Chips: Primo (1) and Ultimo ($maxNumber)
+                    // Quick Jump Chips: First (1) and Latest ($maxNumber)
                     if (!item.isDownloaded && maxNumber > 1) {
                         Spacer(modifier = Modifier.height(10.dp))
                         Row(
@@ -478,7 +497,7 @@ fun DetailsBottomSheet(
                                     }
                             ) {
                                 Text(
-                                    text = if (isAnime) "Episodio 1" else "Capitolo 1",
+                                    text = if (isAnime) "Episode 1" else "Chapter 1",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSurface,
@@ -498,7 +517,7 @@ fun DetailsBottomSheet(
                                     }
                             ) {
                                 Text(
-                                    text = if (isAnime) "Ultimo (Ep. $maxNumber)" else "Ultimo (Cap. $maxNumber)",
+                                    text = if (isAnime) "Latest (Ep. $maxNumber)" else "Latest (Ch. $maxNumber)",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = CrunchyrollOrange,
@@ -527,7 +546,7 @@ fun DetailsBottomSheet(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (isAnime) "Visto (Tocca per rimuovere)" else "Letto (Tocca per rimuovere)",
+                                text = if (isAnime) "Watched (Tap to remove)" else "Read (Tap to remove)",
                                 fontSize = 13.sp,
                                 color = DubGreen,
                                 fontWeight = FontWeight.Medium
@@ -559,7 +578,7 @@ fun DetailsBottomSheet(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (isAnime) "GUARDA EPISODIO $selectedNumber$audioSuffix" else "LEGGI CAPITOLO $selectedNumber",
+                    text = if (isAnime) "WATCH EPISODE $selectedNumber$audioSuffix" else "READ CHAPTER $selectedNumber",
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
                 )
@@ -584,7 +603,7 @@ fun DetailsBottomSheet(
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = if (downloadProgressText.isNotBlank()) downloadProgressText else "Scaricamento in corso...",
+                        text = if (downloadProgressText.isNotBlank()) downloadProgressText else "Downloading...",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -606,7 +625,7 @@ fun DetailsBottomSheet(
                     ) {
                         Icon(Icons.Default.DownloadDone, contentDescription = null)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Scaricato Offline", fontWeight = FontWeight.SemiBold)
+                        Text("Downloaded Offline", fontWeight = FontWeight.SemiBold)
                     }
 
                     FilledTonalIconButton(
@@ -618,7 +637,7 @@ fun DetailsBottomSheet(
                             contentColor = MaterialTheme.colorScheme.onErrorContainer
                         )
                     ) {
-                        Icon(Icons.Default.Delete, contentDescription = "Elimina download")
+                        Icon(Icons.Default.Delete, contentDescription = "Delete download")
                     }
                 }
             } else {
@@ -635,7 +654,7 @@ fun DetailsBottomSheet(
                     Icon(Icons.Default.Download, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isAnime) "Scarica Episodio $selectedNumber$audioSuffix" else "Scarica Capitolo $selectedNumber",
+                        text = if (isAnime) "Download Episode $selectedNumber$audioSuffix" else "Download Chapter $selectedNumber",
                         fontSize = 14.sp
                     )
                 }

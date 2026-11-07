@@ -30,18 +30,18 @@ data class MediaItem(
             if (!customSubDubText.isNullOrBlank()) return customSubDubText
             val isManga = type.equals("manga", ignoreCase = true)
             if (isDownloaded) {
-                val unit = if (isManga) "capitoli" else "episodi"
+                val unit = if (isManga) "chapters" else "episodes"
                 val size = if (!downloadSizeText.isNullOrBlank()) " ($downloadSizeText)" else ""
-                return "$count $unit scaricati$size"
+                return "$count $unit downloaded$size"
             }
             if (!watchedSummary.isNullOrBlank()) {
-                val label = if (isManga) "Letto" else "Visto"
-                val unit = if (isManga) "cap." else "ep."
+                val label = if (isManga) "Read" else "Watched"
+                val unit = if (isManga) "ch." else "ep."
                 return "$label: $watchedSummary ($count $unit)"
             }
             if (!lastItem.isNullOrBlank()) {
-                val label = if (isManga) "Letto" else "Visto"
-                val unit = if (isManga) "cap." else "ep."
+                val label = if (isManga) "Read" else "Watched"
+                val unit = if (isManga) "ch." else "ep."
                 return "$label: $lastItem ($count $unit)"
             }
             val langBadge = if (language.isNotBlank()) language.uppercase() else "IT"
@@ -50,10 +50,24 @@ data class MediaItem(
             }
             return when (audio?.lowercase()) {
                 "both" -> "Sub | Dub ($langBadge)"
-                "ita", "dub" -> "Doppiato (DUB $langBadge)"
-                "subita", "sub" -> "Sottotitolato (SUB $langBadge)"
+                "ita", "dub" -> "Dubbed (DUB $langBadge)"
+                "subita", "sub" -> "Subtitled (SUB $langBadge)"
                 else -> "Sub | Dub ($langBadge)"
             }
+        }
+
+    val hasSub: Boolean
+        get() {
+            if (type.equals("manga", ignoreCase = true)) return false
+            val a = audio?.lowercase()?.trim()
+            return a == null || a.isEmpty() || a == "both" || a == "sub" || a == "subita" || a.contains("sub")
+        }
+
+    val hasDub: Boolean
+        get() {
+            if (type.equals("manga", ignoreCase = true)) return false
+            val a = audio?.lowercase()?.trim()
+            return a != null && (a == "both" || a == "dub" || a == "ita" || a.contains("dub") || a.contains("ita"))
         }
 
     val audioBadge: String

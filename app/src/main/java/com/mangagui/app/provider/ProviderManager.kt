@@ -33,9 +33,81 @@ object ProviderManager {
         return mangaProviders.firstOrNull { it.id.equals(clean, ignoreCase = true) }
     }
 
+    fun normalizeTitleForDedup(rawTitle: String?): String {
+        if (rawTitle.isNullOrBlank()) return ""
+        return rawTitle
+            .replace(Regex("""\b(?:sub\s*ita|ita\s*doppiato|ita\s*dubbed|ita/sub\s*ita|sub/dub|ita|subita|sub|dub|raw|oav|movie|film|tv)\b""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\b(?:english\s*sub|eng\s*sub|english|eng)\b""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""[()\[\]/\-_]"""), " ")
+            .replace(Regex("""[^a-zA-Z0-9\s]"""), " ")
+            .replace(Regex("""\s+"""), " ")
+            .trim()
+            .lowercase()
+    }
+
+    fun cleanDisplayTitle(rawTitle: String?): String {
+        if (rawTitle.isNullOrBlank()) return ""
+        return rawTitle
+            .replace(Regex("""\s*[(\[]\s*(?:sub\s*ita|ita\s*doppiato|ita\s*dubbed|ita/sub\s*ita|sub/dub|ita|subita|sub|dub|english\s*sub|eng|raw)\s*[)\]]""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s*-\s*(?:sub\s*ita|ita\s*doppiato|ita\s*dubbed|ita|sub|dub).*$""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s+(?:SUB\s*ITA|ITA\s*DUBBED|ITA/SUB\s*ITA|SUBITA|ITA)\b""", RegexOption.IGNORE_CASE), "")
+            .trim()
+    }
+
+    private fun mergeAudio(a1: String?, a2: String?): String {
+        val norm1 = a1?.lowercase()?.trim() ?: ""
+        val norm2 = a2?.lowercase()?.trim() ?: ""
+        val hasSub1 = norm1 == "both" || norm1 == "sub" || norm1 == "subita" || norm1.contains("sub")
+        val hasSub2 = norm2 == "both" || norm2 == "sub" || norm2 == "subita" || norm2.contains("sub")
+        val hasDub1 = norm1 == "both" || norm1 == "dub" || norm1 == "ita" || norm1.contains("dub") || norm1.contains("ita")
+        val hasDub2 = norm2 == "both" || norm2 == "dub" || norm2 == "ita" || norm2.contains("dub") || norm2.contains("ita")
+
+        val hasSub = hasSub1 || hasSub2
+        val hasDub = hasDub1 || hasDub2
+
+        return when {
+            hasSub && hasDub -> "both"
+            hasDub -> "dub"
+            hasSub -> "sub"
+            else -> norm1.ifEmpty { norm2 }
+        }
+    }
+
+    fun deduplicateItems(items: List<MediaItem>): List<MediaItem> {
+        val result = mutableListOf<MediaItem>()
+        val seenKeys = mutableMapOf<String, MediaItem>()
+
+        for (item in items) {
+            val normTitle = normalizeTitleForDedup(item.title)
+            val key = if (normTitle.length >= 3) "${item.type}:$normTitle" else (item.url ?: item.id)
+            val existing = seenKeys[key]
+            if (existing == null) {
+                val cleanedTitle = cleanDisplayTitle(item.title)
+                val cleaned = if (cleanedTitle.length >= 2) item.copy(title = cleanedTitle) else item
+                seenKeys[key] = cleaned
+                result.add(cleaned)
+            } else {
+                val mergedAudio = mergeAudio(existing.audio, item.audio)
+                val mergedImage = if (existing.image.isNullOrBlank() && !item.image.isNullOrBlank()) item.image else existing.image
+                val mergedCount = maxOf(existing.count, item.count)
+                val updated = existing.copy(
+                    audio = mergedAudio,
+                    image = mergedImage,
+                    count = mergedCount
+                )
+                seenKeys[key] = updated
+                val idx = result.indexOf(existing)
+                if (idx >= 0) {
+                    result[idx] = updated
+                }
+            }
+        }
+        return result
+    }
+
     private fun interleaveResults(resultsBySource: List<List<MediaItem>>): List<MediaItem> {
         val interleaved = mutableListOf<MediaItem>()
-        val seenUrls = mutableSetOf<String>()
+        val seenKeys = mutableMapOf<String, MediaItem>()
         var hasMore = true
         var index = 0
 
@@ -44,9 +116,28 @@ object ProviderManager {
             for (list in resultsBySource) {
                 if (index < list.size) {
                     val item = list[index]
-                    val key = item.url ?: item.id
-                    if (seenUrls.add(key)) {
-                        interleaved.add(item)
+                    val normTitle = normalizeTitleForDedup(item.title)
+                    val key = if (normTitle.length >= 3) "${item.type}:$normTitle" else (item.url ?: item.id)
+                    val existing = seenKeys[key]
+                    if (existing == null) {
+                        val cleanedTitle = cleanDisplayTitle(item.title)
+                        val cleaned = if (cleanedTitle.length >= 2) item.copy(title = cleanedTitle) else item
+                        seenKeys[key] = cleaned
+                        interleaved.add(cleaned)
+                    } else {
+                        val mergedAudio = mergeAudio(existing.audio, item.audio)
+                        val mergedImage = if (existing.image.isNullOrBlank() && !item.image.isNullOrBlank()) item.image else existing.image
+                        val mergedCount = maxOf(existing.count, item.count)
+                        val updated = existing.copy(
+                            audio = mergedAudio,
+                            image = mergedImage,
+                            count = mergedCount
+                        )
+                        seenKeys[key] = updated
+                        val idx = interleaved.indexOf(existing)
+                        if (idx >= 0) {
+                            interleaved[idx] = updated
+                        }
                     }
                     hasMore = true
                 }
@@ -59,7 +150,7 @@ object ProviderManager {
     suspend fun getAnimeCatalog(source: String?, lang: String?, genre: String?, audio: String?): List<MediaItem> = withContext(Dispatchers.IO) {
         val selected = getAnimeProvider(source)
         if (selected != null && !source.isNullOrBlank() && !source.equals("All sources", ignoreCase = true)) {
-            return@withContext selected.getCatalog(lang, genre, audio).map { it.copy(type = "anime") }
+            return@withContext deduplicateItems(selected.getCatalog(lang, genre, audio).map { it.copy(type = "anime") })
         }
 
         val deferreds = animeProviders.map { prov ->
@@ -74,7 +165,7 @@ object ProviderManager {
     suspend fun searchAnime(query: String, source: String?, lang: String?, genre: String?, audio: String?): List<MediaItem> = withContext(Dispatchers.IO) {
         val selected = getAnimeProvider(source)
         if (selected != null && !source.isNullOrBlank() && !source.equals("All sources", ignoreCase = true)) {
-            return@withContext selected.search(query, lang, genre, audio).map { it.copy(type = "anime") }
+            return@withContext deduplicateItems(selected.search(query, lang, genre, audio).map { it.copy(type = "anime") })
         }
 
         val deferreds = animeProviders.map { prov ->
@@ -89,7 +180,7 @@ object ProviderManager {
     suspend fun getMangaCatalog(source: String?, lang: String?, genre: String?): List<MediaItem> = withContext(Dispatchers.IO) {
         val selected = getMangaProvider(source)
         if (selected != null && !source.isNullOrBlank() && !source.equals("All sources", ignoreCase = true)) {
-            return@withContext selected.getCatalog(lang, genre).map { it.copy(type = "manga") }
+            return@withContext deduplicateItems(selected.getCatalog(lang, genre).map { it.copy(type = "manga") })
         }
 
         val deferreds = mangaProviders.map { prov ->
@@ -104,7 +195,7 @@ object ProviderManager {
     suspend fun searchManga(query: String, source: String?, lang: String?, genre: String?): List<MediaItem> = withContext(Dispatchers.IO) {
         val selected = getMangaProvider(source)
         if (selected != null && !source.isNullOrBlank() && !source.equals("All sources", ignoreCase = true)) {
-            return@withContext selected.search(query, lang, genre).map { it.copy(type = "manga") }
+            return@withContext deduplicateItems(selected.search(query, lang, genre).map { it.copy(type = "manga") })
         }
 
         val deferreds = mangaProviders.map { prov ->

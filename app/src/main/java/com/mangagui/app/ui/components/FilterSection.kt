@@ -58,12 +58,12 @@ fun FilterSection(
                 selected = isGenreActive,
                 onClick = { showAllGenresDialog = true },
                 label = {
-                    Text(if (isGenreActive) selectedGenre else "Genere")
+                    Text(if (isGenreActive) selectedGenre else "Genre")
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.FilterList,
-                        contentDescription = "Generi",
+                        contentDescription = "Genres",
                         modifier = Modifier.size(16.dp)
                     )
                 },
@@ -116,12 +116,12 @@ fun FilterSection(
                     selected = isLangActive,
                     onClick = { showLanguageMenu = true },
                     label = {
-                        Text(if (isLangActive) selectedLanguage else "Lingua")
+                        Text(if (isLangActive) selectedLanguage else "Language")
                     },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Language,
-                            contentDescription = "Lingua",
+                            contentDescription = "Language",
                             modifier = Modifier.size(16.dp)
                         )
                     },
@@ -177,7 +177,7 @@ fun FilterSection(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Azzera Filtri",
+                        contentDescription = "Reset Filters",
                         tint = MaterialTheme.colorScheme.error,
                         modifier = Modifier.size(18.dp)
                     )
@@ -192,7 +192,7 @@ fun FilterSection(
             onDismissRequest = { showAllGenresDialog = false },
             title = {
                 Text(
-                    text = "Tutti i Generi",
+                    text = "All Genres",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -241,7 +241,7 @@ fun FilterSection(
             },
             confirmButton = {
                 TextButton(onClick = { showAllGenresDialog = false }) {
-                    Text("Chiudi", color = CrunchyrollOrange)
+                    Text("Close", color = CrunchyrollOrange)
                 }
             }
         )
