@@ -6,6 +6,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
@@ -43,6 +44,7 @@ import com.mangagui.app.model.ChapterPages
 import com.mangagui.app.ui.theme.CrunchyrollOrange
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ReaderScreen(
     title: String,
@@ -58,8 +60,15 @@ fun ReaderScreen(
     val pages = chapterPages.pages
     val totalPages = pages.size
 
-    var showControls by remember { mutableStateOf(false) }
-    var isRtlDirection by remember { mutableStateOf(true) } // Manga default: Right to Left
+    var showControls by remember { mutableStateOf(true) }
+    var isRtlDirection by remember { mutableStateOf(false) } // Default LTR for natural mobile swipe; toggleable to RTL
+    var isDoublePageMode by remember { mutableStateOf(false) } // Optional 2-page view, toggleable anytime
+
+    val slotCount = remember(totalPages, isDoublePageMode) {
+        if (totalPages == 0) 0
+        else if (isDoublePageMode) (totalPages + 1) / 2
+        else totalPages
+    }
 
     // Keep screen on while reading
     DisposableEffect(Unit) {
@@ -115,35 +124,67 @@ fun ReaderScreen(
         return
     }
 
-    // Pager for single page swipeable view
+    // Pager supporting both 1-page and optional 2-page swipeable views
     val pagerState = rememberPagerState(
         initialPage = 0,
-        pageCount = { totalPages }
+        pageCount = { slotCount }
     )
 
-    val currentPage = pagerState.currentPage + 1
+    val currentSlot = pagerState.currentPage.coerceIn(0, (slotCount - 1).coerceAtLeast(0))
+    val currentFirstPage = if (isDoublePageMode) (currentSlot * 2 + 1).coerceAtMost(totalPages) else (currentSlot + 1)
+    val currentSecondPage = if (isDoublePageMode) (currentSlot * 2 + 2).takeIf { it <= totalPages } else null
+
+    val pageIndicatorLabel = if (isDoublePageMode && currentSecondPage != null) {
+        "Pagine $currentFirstPage-$currentSecondPage di $totalPages"
+    } else {
+        "Pagina $currentFirstPage di $totalPages"
+    }
+
+    val toggleDoublePageMode: () -> Unit = {
+        val currentPageIndexZeroBased = if (isDoublePageMode) {
+            (pagerState.currentPage * 2).coerceIn(0, totalPages - 1)
+        } else {
+            pagerState.currentPage.coerceIn(0, totalPages - 1)
+        }
+        val nextDoubleMode = !isDoublePageMode
+        isDoublePageMode = nextDoubleMode
+        coroutineScope.launch {
+            val targetSlot = if (nextDoubleMode) {
+                currentPageIndexZeroBased / 2
+            } else {
+                currentPageIndexZeroBased
+            }
+            pagerState.scrollToPage(targetSlot)
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Single Page View with Horizontal Pager
+        // Swipeable Horizontal Pager (1-Page or 2-Page mode)
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize(),
             beyondViewportPageCount = 2,
             reverseLayout = isRtlDirection
-        ) { pageIndex ->
-            val pageUrl = pages.getOrNull(pageIndex).orEmpty()
-
+        ) { slotIndex ->
             var scale by remember { mutableFloatStateOf(1f) }
             var offset by remember { mutableStateOf(Offset.Zero) }
+
+            // Reset zoom when swiping to another page
+            LaunchedEffect(pagerState.currentPage, isDoublePageMode) {
+                if (pagerState.currentPage != slotIndex && scale != 1f) {
+                    scale = 1f
+                    offset = Offset.Zero
+                }
+            }
 
             val transformableState = rememberTransformableState { zoomChange, offsetChange, _ ->
                 val newScale = (scale * zoomChange).coerceIn(1f, 4f)
                 scale = newScale
-                if (newScale > 1f) {
+                if (newScale > 1.01f) {
                     offset += offsetChange
                 } else {
                     offset = Offset.Zero
@@ -153,10 +194,10 @@ fun ReaderScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) {
+                    .pointerInput(isRtlDirection, slotCount) {
                         detectTapGestures(
-                            onDoubleTap = { tapOffset ->
-                                if (scale > 1f) {
+                            onDoubleTap = {
+                                if (scale > 1.01f) {
                                     scale = 1f
                                     offset = Offset.Zero
                                 } else {
@@ -171,10 +212,10 @@ fun ReaderScreen(
 
                                 when {
                                     tapOffset.x < leftBoundary -> {
-                                        // Left tap
+                                        // Left edge tap
                                         coroutineScope.launch {
                                             if (isRtlDirection) {
-                                                if (pagerState.currentPage < totalPages - 1) {
+                                                if (pagerState.currentPage < slotCount - 1) {
                                                     pagerState.animateScrollToPage(pagerState.currentPage + 1)
                                                 }
                                             } else {
@@ -185,46 +226,35 @@ fun ReaderScreen(
                                         }
                                     }
                                     tapOffset.x > rightBoundary -> {
-                                        // Right tap
+                                        // Right edge tap
                                         coroutineScope.launch {
                                             if (isRtlDirection) {
                                                 if (pagerState.currentPage > 0) {
                                                     pagerState.animateScrollToPage(pagerState.currentPage - 1)
                                                 }
                                             } else {
-                                                if (pagerState.currentPage < totalPages - 1) {
+                                                if (pagerState.currentPage < slotCount - 1) {
                                                     pagerState.animateScrollToPage(pagerState.currentPage + 1)
                                                 }
                                             }
                                         }
                                     }
                                     else -> {
-                                        // Center tap: toggle controls
+                                        // Center tap: toggle controls overlay
                                         showControls = !showControls
                                     }
                                 }
                             }
                         )
                     }
-                    .transformable(state = transformableState),
+                    // Allow 1-finger horizontal swipe on HorizontalPager when not zoomed in!
+                    .transformable(
+                        state = transformableState,
+                        canPan = { scale > 1.01f }
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                val request = remember(pageUrl) {
-                    ImageRequest.Builder(context)
-                        .data(pageUrl)
-                        .crossfade(true)
-                        .apply {
-                            if (!chapterPages.referer.isNullOrBlank()) {
-                                setHeader("Referer", chapterPages.referer)
-                            }
-                        }
-                        .build()
-                }
-
-                SubcomposeAsyncImage(
-                    model = request,
-                    contentDescription = "Page $currentPage",
-                    contentScale = ContentScale.Fit,
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer(
@@ -233,38 +263,66 @@ fun ReaderScreen(
                             translationX = offset.x,
                             translationY = offset.y
                         ),
-                    loading = {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                color = CrunchyrollOrange,
-                                strokeWidth = 3.dp,
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
-                    },
-                    error = {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.BrokenImage,
-                                contentDescription = null,
-                                tint = Color.Gray,
-                                modifier = Modifier.size(40.dp)
-                            )
-                            Text(
-                                text = "Unable to load page $currentPage",
-                                color = Color.Gray,
-                                fontSize = 12.sp
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!isDoublePageMode) {
+                        val pageUrl = pages.getOrNull(slotIndex).orEmpty()
+                        MangaPageImage(
+                            pageUrl = pageUrl,
+                            pageNumber = slotIndex + 1,
+                            referer = chapterPages.referer,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        val firstIdx = slotIndex * 2
+                        val secondIdx = slotIndex * 2 + 1
+                        val firstUrl = pages.getOrNull(firstIdx).orEmpty()
+                        val secondUrl = pages.getOrNull(secondIdx)
+
+                        if (secondUrl != null) {
+                            // Two-Page Side-by-Side View (respecting LTR or RTL reading order)
+                            val leftIdx = if (isRtlDirection) secondIdx else firstIdx
+                            val rightIdx = if (isRtlDirection) firstIdx else secondIdx
+                            val leftUrl = if (isRtlDirection) secondUrl else firstUrl
+                            val rightUrl = if (isRtlDirection) firstUrl else secondUrl
+
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                MangaPageImage(
+                                    pageUrl = leftUrl,
+                                    pageNumber = leftIdx + 1,
+                                    referer = chapterPages.referer,
+                                    contentAlignment = Alignment.CenterEnd,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .padding(end = 1.dp)
+                                )
+                                MangaPageImage(
+                                    pageUrl = rightUrl,
+                                    pageNumber = rightIdx + 1,
+                                    referer = chapterPages.referer,
+                                    contentAlignment = Alignment.CenterStart,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .padding(start = 1.dp)
+                                )
+                            }
+                        } else {
+                            // Odd last page in 2-page mode: display centered
+                            MangaPageImage(
+                                pageUrl = firstUrl,
+                                pageNumber = firstIdx + 1,
+                                referer = chapterPages.referer,
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
                     }
-                )
+                }
             }
         }
 
@@ -277,14 +335,14 @@ fun ReaderScreen(
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.Black.copy(alpha = 0.85f),
+                color = Color.Black.copy(alpha = 0.88f),
                 tonalElevation = 6.dp
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -295,43 +353,71 @@ fun ReaderScreen(
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Close Reader",
+                                contentDescription = "Chiudi Reader",
                                 tint = Color.White
                             )
                         }
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
 
                         Text(
                             text = title,
                             color = Color.White,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
                     }
 
-                    // Reading Direction Toggle Button (RTL vs LTR)
-                    FilledTonalButton(
-                        onClick = { isRtlDirection = !isRtlDirection },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = CrunchyrollOrange.copy(alpha = 0.2f),
-                            contentColor = CrunchyrollOrange
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text(
-                            text = if (isRtlDirection) "Manga (RTL ◀)" else "Web (LTR ▶)",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        // Optional 1-Page / 2-Page View Toggle Button
+                        FilledTonalButton(
+                            onClick = toggleDoublePageMode,
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = if (isDoublePageMode) CrunchyrollOrange else CrunchyrollOrange.copy(alpha = 0.2f),
+                                contentColor = if (isDoublePageMode) Color.Black else CrunchyrollOrange
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isDoublePageMode) Icons.AutoMirrored.Filled.MenuBook else Icons.Default.CropPortrait,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isDoublePageMode) "2 Pagine" else "1 Pagina",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // Reading Direction Toggle Button (LTR vs RTL)
+                        FilledTonalButton(
+                            onClick = { isRtlDirection = !isRtlDirection },
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Color.White.copy(alpha = 0.14f),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (isRtlDirection) "RTL ◀" else "LTR ▶",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // Bottom Controls Overlay with Page Slider & Jump Buttons
+        // Bottom Controls Overlay with Page Slider, Quick Page Turn & Chapter Jump
         AnimatedVisibility(
             visible = showControls,
             enter = fadeIn(),
@@ -340,14 +426,14 @@ fun ReaderScreen(
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.Black.copy(alpha = 0.85f),
+                color = Color.Black.copy(alpha = 0.88f),
                 tonalElevation = 6.dp
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -355,25 +441,25 @@ fun ReaderScreen(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "$currentPage",
+                            text = if (isDoublePageMode && currentSecondPage != null) "$currentFirstPage-$currentSecondPage" else "$currentFirstPage",
                             color = CrunchyrollOrange,
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.width(32.dp)
+                            modifier = Modifier.widthIn(min = 34.dp)
                         )
 
                         Slider(
-                            value = (currentPage - 1).toFloat(),
+                            value = currentSlot.toFloat(),
                             onValueChange = { newVal ->
                                 coroutineScope.launch {
-                                    pagerState.scrollToPage(newVal.toInt())
+                                    pagerState.scrollToPage(newVal.toInt().coerceIn(0, (slotCount - 1).coerceAtLeast(0)))
                                 }
                             },
-                            valueRange = 0f..(totalPages - 1).coerceAtLeast(0).toFloat(),
-                            steps = if (totalPages > 2) totalPages - 2 else 0,
+                            valueRange = 0f..(slotCount - 1).coerceAtLeast(0).toFloat(),
+                            steps = if (slotCount > 2) slotCount - 2 else 0,
                             modifier = Modifier.weight(1f),
                             colors = SliderDefaults.colors(
                                 thumbColor = CrunchyrollOrange,
@@ -385,37 +471,58 @@ fun ReaderScreen(
                         Text(
                             text = "$totalPages",
                             color = Color.Gray,
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.width(32.dp)
+                            modifier = Modifier.widthIn(min = 28.dp)
                         )
                     }
 
-                    // Chapter Jump Row
+                    // Quick Page & Chapter Navigation Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (onPrevChapter != null) {
-                            TextButton(
-                                onClick = onPrevChapter,
-                                colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.NavigateBefore, contentDescription = null)
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Prev Ch.")
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (onPrevChapter != null) {
+                                TextButton(
+                                    onClick = onPrevChapter,
+                                    colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.NavigateBefore, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Text("Cap. Prec.", fontSize = 12.sp)
+                                }
                             }
-                        } else {
-                            Spacer(modifier = Modifier.width(40.dp))
+
+                            IconButton(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        if (pagerState.currentPage > 0) {
+                                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                                        }
+                                    }
+                                },
+                                enabled = currentSlot > 0
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.NavigateBefore,
+                                    contentDescription = "Pagina Precedente",
+                                    tint = if (currentSlot > 0) CrunchyrollOrange else Color.DarkGray
+                                )
+                            }
                         }
 
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = CrunchyrollOrange.copy(alpha = 0.2f)
+                            color = CrunchyrollOrange.copy(alpha = 0.2f),
+                            onClick = toggleDoublePageMode
                         ) {
                             Text(
-                                text = "Page $currentPage of $totalPages",
+                                text = pageIndicatorLabel,
                                 color = CrunchyrollOrange,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
@@ -423,21 +530,102 @@ fun ReaderScreen(
                             )
                         }
 
-                        if (onNextChapter != null) {
-                            TextButton(
-                                onClick = onNextChapter,
-                                colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        if (pagerState.currentPage < slotCount - 1) {
+                                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                        }
+                                    }
+                                },
+                                enabled = currentSlot < slotCount - 1
                             ) {
-                                Text("Next Ch.")
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null)
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.NavigateNext,
+                                    contentDescription = "Pagina Successiva",
+                                    tint = if (currentSlot < slotCount - 1) CrunchyrollOrange else Color.DarkGray
+                                )
                             }
-                        } else {
-                            Spacer(modifier = Modifier.width(40.dp))
+
+                            if (onNextChapter != null) {
+                                TextButton(
+                                    onClick = onNextChapter,
+                                    colors = ButtonDefaults.textButtonColors(contentColor = Color.White),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text("Cap. Succ.", fontSize = 12.sp)
+                                    Icon(Icons.AutoMirrored.Filled.NavigateNext, contentDescription = null, modifier = Modifier.size(18.dp))
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun MangaPageImage(
+    pageUrl: String,
+    pageNumber: Int,
+    referer: String?,
+    modifier: Modifier = Modifier,
+    contentAlignment: Alignment = Alignment.Center
+) {
+    val context = LocalContext.current
+    val request = remember(pageUrl, referer) {
+        ImageRequest.Builder(context)
+            .data(pageUrl)
+            .crossfade(true)
+            .apply {
+                if (!referer.isNullOrBlank()) {
+                    setHeader("Referer", referer)
+                }
+            }
+            .build()
+    }
+
+    SubcomposeAsyncImage(
+        model = request,
+        contentDescription = "Pagina $pageNumber",
+        contentScale = ContentScale.Fit,
+        alignment = contentAlignment,
+        modifier = modifier,
+        loading = {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = CrunchyrollOrange,
+                    strokeWidth = 3.dp,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+        },
+        error = {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.BrokenImage,
+                    contentDescription = null,
+                    tint = Color.Gray,
+                    modifier = Modifier.size(40.dp)
+                )
+                Text(
+                    text = "Impossibile caricare pagina $pageNumber",
+                    color = Color.Gray,
+                    fontSize = 12.sp
+                )
+            }
+        }
+    )
 }
