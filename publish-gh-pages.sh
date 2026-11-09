@@ -58,12 +58,27 @@ echo "📱 MANGA-GUI-MOBILE -> GH-PAGES UPDATER PUBLISHER"
 echo "   Repo:   $REPO_URL (branch: $BRANCH)"
 echo "============================================================"
 
-# 1. Eventuale aggiornamento versione
+# 1. Eventuale aggiornamento versione e sincronizzazione automatica con build.gradle.kts
 if [ -n "$NEW_VERSION" ]; then
     sed -i "s/\"version\": \".*\"/\"version\": \"${NEW_VERSION}\"/" version_mobile.json
     sed -i "s/\"pkgver\": \".*\"/\"pkgver\": \"${NEW_VERSION}\"/" version_mobile.json
-    sed -i "s/versionName = \".*\"/versionName = \"${NEW_VERSION}\"/" app/build.gradle.kts
     echo "🔼 Impostata nuova versione: $NEW_VERSION"
+fi
+
+CURRENT_VER=$(grep -E '"version":' version_mobile.json | head -n 1 | awk -F '"' '{print $4}')
+GRADLE_VER=$(grep -E 'versionName = "' app/build.gradle.kts | head -n 1 | awk -F '"' '{print $2}')
+
+# Aggiorna sempre apkUrl col nome file versionato per evitare qualsiasi cache CDN/HTTP del vecchio APK
+sed -i "s|\"apkUrl\": \".*\"|\"apkUrl\": \"https://bhaki18.github.io/manga-cli/android/manga-gui-${CURRENT_VER}.apk\"|" version_mobile.json
+
+# Sincronizza sempre versionName (e incrementa versionCode) se version_mobile.json è stato modificato a mano
+if [ -n "$CURRENT_VER" ] && [ "$CURRENT_VER" != "$GRADLE_VER" ]; then
+    OLD_CODE=$(grep -E 'versionCode = [0-9]+' app/build.gradle.kts | head -n 1 | awk '{print $3}')
+    NEW_CODE=$(( ${OLD_CODE:-1} + 1 ))
+    sed -i "s/versionCode = [0-9]\+/versionCode = ${NEW_CODE}/" app/build.gradle.kts
+    sed -i "s/versionName = \".*\"/versionName = \"${CURRENT_VER}\"/" app/build.gradle.kts
+    echo "🔄 Sincronizzato app/build.gradle.kts: versionName=\"$CURRENT_VER\", versionCode=$NEW_CODE"
+    DO_BUILD=true
 fi
 
 if [ -n "$CUSTOM_NOTES" ]; then
@@ -78,9 +93,15 @@ if [ -n "$CUSTOM_NOTES" ]; then
     echo "📝 Note di rilascio aggiornate in version_mobile.json"
 fi
 
-# 2. Eventuale compilazione Release
-if [ "$DO_BUILD" = true ] || [ ! -f "app/build/outputs/apk/release/app-release.apk" ]; then
-    echo "🔨 Compilazione APK Release in corso..."
+# Controlla se l'APK esistente ha una versione diversa da CURRENT_VER
+BUILT_APK_VER=""
+if [ -f "app/build/outputs/apk/release/output-metadata.json" ]; then
+    BUILT_APK_VER=$(grep -E '"versionName":' app/build/outputs/apk/release/output-metadata.json | head -n 1 | awk -F '"' '{print $4}')
+fi
+
+# 2. Compilazione Release (forzata se richiesta, se l'APK manca o se la versione interna dell'APK non coincide)
+if [ "$DO_BUILD" = true ] || [ ! -f "app/build/outputs/apk/release/app-release.apk" ] || [ "$BUILT_APK_VER" != "$CURRENT_VER" ]; then
+    echo "🔨 Compilazione APK Release (v$CURRENT_VER) in corso..."
     ./build.sh release
 fi
 

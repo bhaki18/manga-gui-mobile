@@ -20,10 +20,11 @@ data class UpdateInfo(
 )
 
 class UpdateService(private val context: Context) {
+    // Check gh-pages first because the APK is hosted on gh-pages (avoids race condition where main branch updates before APK is deployed)
     private val versionUrls = listOf(
-        "https://raw.githubusercontent.com/bhaki18/manga-gui-mobile/main/version_mobile.json",
-        "https://raw.githubusercontent.com/bhaki18/manga-gui/main/version_mobile.json",
-        "https://bhaki18.github.io/manga-cli/version_mobile.json"
+        "https://bhaki18.github.io/manga-cli/version_mobile.json",
+        "https://bhaki18.github.io/manga-cli/android/version_mobile.json",
+        "https://raw.githubusercontent.com/bhaki18/manga-gui-mobile/main/version_mobile.json"
     )
 
     private fun parseVersionTuple(raw: String?): IntArray {
@@ -107,7 +108,13 @@ class UpdateService(private val context: Context) {
     suspend fun downloadAndInstallApk(apkUrl: String, onProgress: (Int) -> Unit): Boolean = withContext(Dispatchers.IO) {
         val destination = File(context.getExternalFilesDir(null) ?: context.filesDir, "update.apk")
         try {
-            NetworkClient.downloadToFile(apkUrl, destination) { current, total ->
+            if (destination.exists()) {
+                destination.delete()
+            }
+            val separator = if (apkUrl.contains("?")) "&" else "?"
+            val cacheBustedApkUrl = "${apkUrl}${separator}t=${System.currentTimeMillis()}"
+
+            NetworkClient.downloadToFile(cacheBustedApkUrl, destination) { current, total ->
                 val p = if (total > 0) (current * 100 / total).toInt() else 0
                 onProgress(p)
             }
@@ -116,7 +123,7 @@ class UpdateService(private val context: Context) {
             val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", destination)
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, "application/vnd.android.package-archive")
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
             context.startActivity(intent)
             true

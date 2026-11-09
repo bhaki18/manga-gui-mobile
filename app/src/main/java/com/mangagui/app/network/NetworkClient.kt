@@ -79,6 +79,8 @@ object NetworkClient {
             .url(url)
             .header("User-Agent", DEFAULT_USER_AGENT)
             .header("Accept", "*/*")
+            .header("Cache-Control", "no-cache, no-store, must-revalidate")
+            .header("Pragma", "no-cache")
             .header("Connection", "keep-alive")
 
         if (!referer.isNullOrBlank()) {
