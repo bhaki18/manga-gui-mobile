@@ -69,6 +69,23 @@ object NetworkClient {
         Jsoup.parse(html, url)
     }
 
+    suspend fun checkUrlExists(url: String, referer: String? = null): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val reqBuilder = Request.Builder()
+                .url(url)
+                .head()
+                .header("User-Agent", DEFAULT_USER_AGENT)
+            if (!referer.isNullOrBlank()) {
+                reqBuilder.header("Referer", referer)
+            }
+            client.newCall(reqBuilder.build()).execute().use { resp ->
+                resp.isSuccessful
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     suspend fun downloadToFile(
         url: String,
         destinationFile: File,

@@ -31,7 +31,7 @@ class OnePiecePowerMangaProvider : MangaProvider {
             MediaItem(
                 id = "onepiece-it",
                 title = "One Piece",
-                url = "$baseUrl/manga8/onepiece/lista-capitoli",
+                url = "$baseUrl/manga8/onepiece/volumi/lista-capitoli",
                 author = "Eiichiro Oda",
                 genres = "Avventura, Shounen, Azione",
                 source = id,
@@ -133,22 +133,34 @@ class OnePiecePowerMangaProvider : MangaProvider {
     }
 
     override suspend fun getChapters(mangaUrl: String, lang: String?): List<Chapter> = withContext(Dispatchers.IO) {
+        val resolvedMangaUrl = if (mangaUrl.contains("/manga8/onepiece/lista-capitoli")) {
+            mangaUrl.replace("/manga8/onepiece/lista-capitoli", "/manga8/onepiece/volumi/lista-capitoli")
+        } else {
+            mangaUrl
+        }
+        val isOnePieceVolumi = resolvedMangaUrl.contains("onepiece/volumi", ignoreCase = true)
         val chapters = mutableListOf<Chapter>()
         try {
-            val html = NetworkClient.fetchHtml(mangaUrl, baseUrl)
-            val doc = org.jsoup.Jsoup.parse(html, mangaUrl)
+            val html = NetworkClient.fetchHtml(resolvedMangaUrl, baseUrl)
+            val doc = org.jsoup.Jsoup.parse(html, resolvedMangaUrl)
             val seenUrls = mutableSetOf<String>()
 
             doc.select("a[href*=\"reader/\"]").forEach { el ->
                 val href = el.attr("href")
                 val title = el.text().replace(Regex("\\s+"), " ").trim()
+                // Ignora i capitoli futuri non ancora usciti (es. "Disponibile dal ...")
+                if (title.contains("Disponibile dal", ignoreCase = true)) return@forEach
+
                 val fullUrl = if (href.startsWith("http")) href else {
                     if (href.startsWith("/")) "$baseUrl$href" else {
-                        val cleanMangaUrl = mangaUrl.replace(Regex("/(lista-capitoli|chapter-list).*$"), "")
+                        val cleanMangaUrl = resolvedMangaUrl.replace(Regex("/(lista-capitoli|chapter-list).*$"), "")
                         "$cleanMangaUrl/${href.replace(Regex("^\\./"), "")}"
                     }
                 }
                 val capId = Regex("""reader/([^/?#]+)""").find(href)?.groupValues?.get(1).orEmpty()
+                // Su One Piece escludiamo il capitolo speciale 000 così Cap. 1..N corrisponde 1:1 ai numeri ufficiali
+                if (isOnePieceVolumi && capId == "000") return@forEach
+
                 if (capId.isNotBlank() && seenUrls.add(fullUrl)) {
                     chapters.add(
                         Chapter(
@@ -162,7 +174,7 @@ class OnePiecePowerMangaProvider : MangaProvider {
             }
         } catch (_: Exception) {}
 
-        val isBerserk = mangaUrl.contains("berserk", ignoreCase = true)
+        val isBerserk = resolvedMangaUrl.contains("berserk", ignoreCase = true)
         val hasSpecialPrologue = isBerserk || chapters.any { it.id.startsWith("000-") }
         if (hasSpecialPrologue) {
             return@withContext chapters.mapIndexed { idx, ch ->
@@ -215,17 +227,43 @@ class OnePiecePowerMangaProvider : MangaProvider {
                         "${baseReaderUrl}volume$vol/capitolo$formattedCap/$p.jpg"
                     }
                 }
-                else -> { pageNum ->
-                    val p = if (pageNum < 10) "0$pageNum" else "$pageNum"
-                    "${baseReaderUrl}volume$rawCap/capitolo$rawCap/$p.jpg"
+                else -> {
+                    val cand1: (Int) -> String = { pageNum ->
+                        val p = if (pageNum < 10) "0$pageNum" else "$pageNum"
+                        "${baseReaderUrl}volume$rawCap/capitolo$rawCap/$p.jpg"
+                    }
+                    val cand2: (Int) -> String = { pageNum ->
+                        val p = if (pageNum < 10) "0$pageNum" else "$pageNum"
+                        "${baseReaderUrl}capitolo$rawCap/$p.jpg"
+                    }
+                    if (NetworkClient.checkUrlExists(cand1(1), chapterUrl)) cand1
+                    else if (NetworkClient.checkUrlExists(cand2(1), chapterUrl)) cand2
+                    else cand1
                 }
             }
 
-            // Scopriamo fino a 60 pagine
-            val pages = mutableListOf<String>()
-            for (p in 1..70) {
-                pages.add(generator(p))
+            // Trova il numero esatto di pagine esistenti tramite ricerca binaria rapida (6-7 richieste HEAD)
+            var low = 1
+            var high = 25
+            while (high < 120 && NetworkClient.checkUrlExists(generator(high), chapterUrl)) {
+                low = high
+                high += 25
             }
+            var lastValidPage = 1
+            var left = low
+            var right = high
+            while (left <= right) {
+                val mid = (left + right) / 2
+                if (NetworkClient.checkUrlExists(generator(mid), chapterUrl)) {
+                    lastValidPage = mid
+                    left = mid + 1
+                } else {
+                    right = mid - 1
+                }
+            }
+
+            val total = lastValidPage.coerceAtLeast(1)
+            val pages = (1..total).map { p -> generator(p) }
 
             val title = doc.title().substringBefore("|").trim().ifBlank { "Chapter $rawCap" }
             ChapterPages(title = title, chapterTitle = title, pages = pages, referer = "$baseUrl/")

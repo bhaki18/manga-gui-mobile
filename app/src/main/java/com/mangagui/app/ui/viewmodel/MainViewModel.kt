@@ -3,10 +3,12 @@ package com.mangagui.app.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.mangagui.app.model.Chapter
 import com.mangagui.app.model.ChapterPages
 import com.mangagui.app.model.Filters
 import com.mangagui.app.model.MediaItem
 import com.mangagui.app.model.StreamData
+import com.mangagui.app.provider.MangaProvider
 import com.mangagui.app.provider.ProviderManager
 import com.mangagui.app.service.CoverService
 import com.mangagui.app.service.DownloadService
@@ -349,9 +351,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val isManga = item.type.equals("manga", ignoreCase = true)
                 val total = if (isManga) {
-                    val prov = ProviderManager.getMangaProvider(item.source)
-                        ?: ProviderManager.mangaProviders.firstOrNull { it.languages.contains(item.language) || it.languages.contains("all") }
-                    prov?.getChapters(item.url ?: item.id, item.language)?.size ?: 1
+                    resolveMangaChapters(item)?.second?.size ?: 1
                 } else {
                     val prov = ProviderManager.getAnimeProvider(item.source) ?: ProviderManager.animeProviders.first()
                     prov.getEpisodes(item.url ?: item.id).size
@@ -364,6 +364,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (_: Exception) {}
         }
+    }
+
+    private suspend fun resolveMangaChapters(item: MediaItem): Pair<MangaProvider, List<Chapter>>? = withContext(Dispatchers.IO) {
+        val primary = ProviderManager.getMangaProvider(item.source)
+            ?: ProviderManager.mangaProviders.firstOrNull { it.languages.contains(item.language) || it.languages.contains("all") }
+            ?: ProviderManager.mangaProviders.first()
+
+        val primaryChapters = runCatching { primary.getChapters(item.url ?: item.id, item.language) }.getOrDefault(emptyList())
+        if (primaryChapters.isNotEmpty()) {
+            return@withContext primary to primaryChapters
+        }
+
+        // Fallback automatico sugli altri provider manga se la fonte primaria non restituisce capitoli
+        val targetNorm = ProviderManager.normalizeTitleForDedup(item.title)
+        for (fallbackProv in ProviderManager.mangaProviders) {
+            if (fallbackProv.id == primary.id) continue
+            if (!fallbackProv.languages.contains("all") && !fallbackProv.languages.contains(item.language)) continue
+            try {
+                val searchRes = fallbackProv.search(item.title, item.language)
+                val matched = searchRes.firstOrNull {
+                    ProviderManager.normalizeTitleForDedup(it.title) == targetNorm
+                } ?: searchRes.firstOrNull()
+                if (matched != null) {
+                    val chs = fallbackProv.getChapters(matched.url ?: matched.id, item.language)
+                    if (chs.isNotEmpty()) {
+                        return@withContext fallbackProv to chs
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        null
     }
 
     fun closeDetails() {
@@ -575,17 +606,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            val prov = ProviderManager.getMangaProvider(item.source)
-                ?: ProviderManager.mangaProviders.firstOrNull { it.languages.contains(item.language) || it.languages.contains("all") }
-                ?: ProviderManager.mangaProviders.first()
-
-            val chapters = prov.getChapters(item.url ?: item.id, item.language)
+            val resolved = resolveMangaChapters(item) ?: return@withContext null
+            val prov = resolved.first
+            val chapters = resolved.second
             val targetCh = chapters.find { it.number == number.toString() } ?: chapters.getOrNull(number - 1)
             if (targetCh != null) {
                 val pages = prov.getChapterPages(targetCh.url)
-                // Mark as read
-                historyService.markWatched(item, number)
-                return@withContext pages
+                if (pages.pages.isNotEmpty()) {
+                    // Mark as read
+                    historyService.markWatched(item, number)
+                    return@withContext pages
+                }
             }
             null
         } catch (ex: Exception) {
